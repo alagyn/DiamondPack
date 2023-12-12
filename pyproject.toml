@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=58.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diamondpack"
+authors = [{ name = "Alagyn" }]
+version = "1.0.0"
+description = "A simple packager for creating distributable python applications"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { file = "LICENSE" }
+dependencies = ["build", "setuptools", "wheel"]
+keywords = ["package", "distribute"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Repository = "https://github.com/alagyn/DiamondPack"
+Issues = "https://github.com/alagyn/DiamondPack/issues"
+
+
+[project.scripts]
+diamondpack = "diamondpack.__main__:main"
+
+[tool.setuptools]
+packages = ["diamondpack"]
+include-package-data = true
