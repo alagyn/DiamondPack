@@ -4,6 +4,9 @@ import os
 import shutil
 import subprocess as sp
 from typing import Optional, List
+import glob
+import re
+import sysconfig
 
 from diamondpack.utils import isWindows
 
@@ -28,13 +31,14 @@ def build_env(build_dir: str, python_exec: Optional[str], wheels: List[str], req
     if os.path.exists(venvDir):
         shutil.rmtree(venvDir)
 
-    # TODO might need --system-site-packages
     sp.run([python_exec, '-m', 'venv', venvDir, '--copies'])
 
     if isWindows():
-        venvExec = os.path.join(venvDir, "Scripts", "python.exe")
+        venvBin = os.path.join(venvDir, "Scripts")
     else:
-        venvExec = os.path.join(venvDir, "bin", "python")
+        venvBin = os.path.join(venvDir, "bin")
+
+    venvExec = os.path.join(venvBin, "python")
 
     if require is not None:
         print("Installing requirements")
@@ -46,11 +50,51 @@ def build_env(build_dir: str, python_exec: Optional[str], wheels: List[str], req
         args.extend(wheels)
         sp.run(args)
 
+    venvCfgFile = os.path.join(venvDir, "pyvenv.cfg")
+    os.remove(venvCfgFile)
+
+    # remove activate scripts
+    for f in glob.glob(os.path.join(venvBin, "activate*")):
+        os.remove(f)
+    for f in glob.glob(os.path.join(venvBin, "Activate*")):
+        os.remove(f)
+    for f in glob.glob(os.path.join(venvBin, "pip*")):
+        os.remove(f)
+    for f in glob.glob(os.path.join(venvBin, "python*")):
+        os.remove(f)
+
+    if isWindows():
+        # TODO
+        pass
+    else:
+        out = sp.run(["ldd", python_exec], capture_output=True)
+        libStr = out.stdout.decode()
+        libList = [x.strip() for x in libStr.split("\n")]
+        LIB_RE = re.compile(r'[a-zA-Z._0-9\-]+ => (?P<filename>[a-zA-Z._0-9\-/\\]+) \(0x[0-9a-f]+\)')
+
+        for x in libList:
+            m = LIB_RE.fullmatch(x)
+            # TODO clean
+            if m is None:
+                print("Bad match", x)
+                continue
+            print("Good: ", m.group('filename'))
+            file = m.group('filename')
+            libName = os.path.split(file)[1]
+            shutil.copyfile(file, os.path.join(venvBin, libName))
+        newExec = os.path.join(venvBin, "python")
+        print("Using exec", python_exec)
+        shutil.copyfile(python_exec, newExec)
+        os.chmod(newExec, 0o755)
+
+        stdlibDir = sysconfig.get_path('stdlib')
+        shutil.copytree(stdlibDir, os.path.join(venvDir, "stdlib"))
+
 
 APP_REPLACEMENT = '@@SCRIPT'
 
 PACKAGE_DIR = os.path.split(__file__)[0]
-TEMPLATE_DIR = "app_templates"
+TEMPLATE_DIR = "app-templates"
 
 
 def make_script(build_dir: str, target: str, name: Optional[str]):
