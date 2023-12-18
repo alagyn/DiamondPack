@@ -74,19 +74,18 @@ def build_env(build_dir: str, python_exec: Optional[str], wheels: List[str], req
 
         for x in libList:
             m = LIB_RE.fullmatch(x)
-            # TODO clean
             if m is None:
-                print("Bad match", x)
                 continue
-            print("Good: ", m.group('filename'))
             file = m.group('filename')
             libName = os.path.split(file)[1]
             shutil.copyfile(file, os.path.join(venvBin, libName))
-        newExec = os.path.join(venvBin, "python")
-        print("Using exec", python_exec)
-        shutil.copyfile(python_exec, newExec)
-        os.chmod(newExec, 0o755)
 
+        # Copy the python executable
+        newExec = os.path.join(venvBin, "python")
+        shutil.copyfile(python_exec, newExec)
+        # Set permissions
+        os.chmod(newExec, 0o755)
+        # Copy the stdlib
         stdlibDir = sysconfig.get_path('stdlib')
         shutil.copytree(stdlibDir, os.path.join(venvDir, "stdlib"))
 
