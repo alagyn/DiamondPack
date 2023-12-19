@@ -66,6 +66,10 @@ def build_env(build_dir: str, python_exec: Optional[str], wheels: List[str], req
         os.remove(f)
     for f in glob.glob(os.path.join(venvBin, "Activate*")):
         os.remove(f)
+    for f in glob.glob(os.path.join(venvBin, "deactivate*")):
+        os.remove(f)
+    for f in glob.glob(os.path.join(venvBin, "Deactivate*")):
+        os.remove(f)
     for f in glob.glob(os.path.join(venvBin, "pip*")):
         os.remove(f)
     for f in glob.glob(os.path.join(venvBin, "python*")):
@@ -88,13 +92,22 @@ def build_env(build_dir: str, python_exec: Optional[str], wheels: List[str], req
             libName = os.path.split(file)[1]
             shutil.copyfile(file, os.path.join(venvBin, libName))
 
-        # Copy the python executable
-        newExec = os.path.join(venvBin, "python")
-        shutil.copyfile(python_exec, newExec)
-        # Set permissions
-        os.chmod(newExec, 0o755)
-        # Copy the stdlib
-        stdlibDir = sysconfig.get_path('stdlib')
+    # Copy the python executable
+    newExec = os.path.join(venvBin, "python")
+    if isWindows():
+        newExec += ".exe"
+        python_exec = os.path.join(sysconfig.get_config_var("installed_base"), "python.exe")
+    shutil.copyfile(python_exec, newExec)
+    # Set permissions
+    os.chmod(newExec, 0o755)
+    
+    # Copy the stdlib
+    stdlibDir = sysconfig.get_path('stdlib')
+    if isWindows():
+        shutil.copytree(stdlibDir, os.path.join(
+            venvDir, "stdlib", "Lib"
+        ))
+    else:
         shutil.copytree(stdlibDir, os.path.join(
             venvDir,
             "stdlib",
@@ -166,12 +179,34 @@ def make_exec(build_dir: str, output_dir: str, target: str, name: Optional[str])
 
     shutil.copy(os.path.join(TEMPLATE_DIR, "CMakeLists.txt"), cmakeSrc)
 
-    sp.run(["cmake", "-S", cmakeSrc, "-B", cmakeBuild, f"-DEXEC_NAME={name}"])
-    sp.run(["cmake", "--build", cmakeBuild])
+    configureParams = [
+        "cmake", "-S", cmakeSrc, "-B", cmakeBuild, f"-DEXEC_NAME={name}"
+    ]
+
+    buildParams = [
+        "cmake", "--build", cmakeBuild
+    ]
+
+    if isWindows():
+        buildParams.append("--config=Release")
+    else:
+        configureParams.append("-DCMAKE_BUILD_TYPE=Release")
+
+    print("------------- Building executable -------------")
+
+    sp.run(configureParams)
+    sp.run(buildParams)
+
+    print("------------- Copying executable -------------")
 
     if isWindows():
         execName = f'{name}.exe'
+        execPath = os.path.join(cmakeBuild, "Release", execName)
     else:
         execName = name
+        execPath = os.path.join(cmakeBuild, execName)
 
-    shutil.copy(os.path.join(cmakeBuild, execName), os.path.join(output_dir, execName))
+    if not os.path.isfile(execPath):
+        raise RuntimeError(f"Cannot find built executable: {execPath}")
+
+    shutil.copy(execPath, os.path.join(output_dir, execName))

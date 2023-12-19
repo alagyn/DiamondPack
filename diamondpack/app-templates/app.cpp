@@ -2,6 +2,10 @@
 Template app
 */
 #ifdef _MSC_VER
+    #define WIN32_LEAN_AND_MEAN
+
+    #include <Windows.h>
+    #include <strsafe.h>
     #include <winbase.h>
 #else
     #include <cstring>
@@ -9,6 +13,7 @@ Template app
     #include <stdlib.h>
 #endif
 
+#include <filesystem>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -17,27 +22,48 @@ Template app
 constexpr char SCRIPT_NAME[] = "@@SCRIPT@@";
 constexpr char PYTHON_VER[] = "@@PYTHON@@";
 
+#define DIAMOND_LOGGING
+
 #ifdef DIAMOND_LOGGING
     #define LOG(x) std::cout << x
 #else
     #define LOG(x)
 #endif
 
-#ifdef _MSC_VER
-/*
-    Windows
-*/
-void create_env()
-{
-}
-
-#else
-/*
- Unix
-*/
 bool write_env(const char* name, const std::string& value)
 {
     LOG("Setting " << name << "=" << value << std::endl);
+#ifdef _MSC_VER
+    if(!SetEnvironmentVariableA(name, value.c_str()))
+    {
+        // Display the error message and exit the process
+        char* msgBuff;
+        DWORD dw = GetLastError();
+
+        FormatMessageA(
+            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM
+                | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL,
+            dw,
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            (char*)&msgBuff,
+            0,
+            NULL
+        );
+
+        const char* from = "Set ENV";
+        size_t size = lstrlenA(msgBuff) + lstrlenA(from) + 40;
+
+        char* displayBuff = new char[size];
+
+        StringCchPrintfA(displayBuff, size, "Error: %s: %s", from, msgBuff);
+
+        std::wcout << L"Error: " << from << L", " << msgBuff << std::endl;
+        MessageBoxA(NULL, (LPCSTR)displayBuff, "Error", MB_OK);
+
+        LocalFree(msgBuff);
+    }
+#else
     int err = setenv(name, value.c_str(), 1);
     if(err != 0)
     {
@@ -45,14 +71,15 @@ bool write_env(const char* name, const std::string& value)
         LOG(strerror(errno) << "\n");
         return false;
     }
+#endif
     return true;
 }
 
 void exec(const std::string& program)
 {
+    LOG("Executing: " << program << std::endl);
     std::system(program.c_str());
 }
-#endif
 
 int main(int argc, char** argv)
 {
@@ -69,8 +96,12 @@ int main(int argc, char** argv)
 
     std::string installDir(appPath, lastSlash);
 
-    // TODO handle other args
-    std::vector<char> buffer;
+    if(installDir.empty())
+    {
+        installDir = std::filesystem::current_path().string();
+    }
+
+    LOG("App location: " << installDir << std::endl);
 
     std::stringstream ss;
     ss << installDir << "/venv/stdlib";
