@@ -1,10 +1,12 @@
 # Example executable script
-
+import sys
 from examplePackage.myModule import add
 
 
 def main():
-    print("Wow 2 + 2 =", add(2, 2))
+    a = int(sys.argv[1])
+    b = int(sys.argv[2])
+    print(f"Wow, {a} + {b} =", add(a, b))
 
 
 if __name__ == '__main__':

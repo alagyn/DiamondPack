@@ -3,7 +3,7 @@ import sys
 import os
 import shutil
 import subprocess as sp
-from typing import Optional, List
+from typing import Optional, List, Dict
 import glob
 import re
 import sysconfig
@@ -42,7 +42,15 @@ def build_env(build_dir: str, python_exec: Optional[str], wheels: List[str], req
 
     if require is not None:
         print("Installing requirements")
-        sp.run([venvExec, "-m", "pip", "install", "-r", require])
+        sp.run([
+            "PIP_DISABLE_PIP_VERSION_CHECK=1",
+            venvExec,
+            "-m",
+            "pip",
+            "install",
+            "-r",
+            require,
+        ])
 
     if len(wheels) > 0:
         print("Installing wheels")
@@ -87,35 +95,83 @@ def build_env(build_dir: str, python_exec: Optional[str], wheels: List[str], req
         os.chmod(newExec, 0o755)
         # Copy the stdlib
         stdlibDir = sysconfig.get_path('stdlib')
-        shutil.copytree(stdlibDir, os.path.join(venvDir, "stdlib"))
+        shutil.copytree(stdlibDir, os.path.join(
+            venvDir,
+            "stdlib",
+            "lib",
+            _get_py_version(),
+        ))
 
 
-APP_REPLACEMENT = '@@SCRIPT'
+APP_REPLACE = '@@SCRIPT@@'
+PY_REPLACE = '@@PYTHON@@'
 
 PACKAGE_DIR = os.path.split(__file__)[0]
-TEMPLATE_DIR = "app-templates"
+TEMPLATE_DIR = os.path.join(PACKAGE_DIR, "app-templates")
+
+REPLACE_RE = re.compile("@@[A-Z]+@@")
 
 
-def make_script(build_dir: str, target: str, name: Optional[str]):
+def _do_replace(template: str, outfile: str, replacements: Dict[str, str]) -> None:
+    with open(outfile, mode='w') as outF, open(template, mode='r') as inF:
+        for line in inF:
+            line = REPLACE_RE.sub(lambda x: replacements[x.group(0)], line)
+            outF.write(line)
+
+
+def _get_py_version() -> str:
+    return f'python{sys.version_info.major}.{sys.version_info.minor}'
+
+
+def make_script(output_dir: str, target: str, name: Optional[str]):
     if name is None:
         name = target
 
     if isWindows():
         name = f'{name}.bat'
-        template = os.path.join(PACKAGE_DIR, TEMPLATE_DIR, 'app.bat')
+        template = os.path.join(TEMPLATE_DIR, 'app.bat')
     else:
         name = f'{name}.sh'
-        template = os.path.join(PACKAGE_DIR, TEMPLATE_DIR, 'app.sh')
+        template = os.path.join(TEMPLATE_DIR, 'app.sh')
 
-    outfile = os.path.join(build_dir, name)
+    outfile = os.path.join(output_dir, name)
 
-    with open(outfile, mode='w') as outF, open(template, mode='r') as inF:
-        for line in inF:
-            outF.write(line.replace(APP_REPLACEMENT, target))
+    replace = {
+        APP_REPLACE: target,
+        PY_REPLACE: _get_py_version()
+    }
+
+    _do_replace(template, outfile, replace)
 
     if not isWindows():
         os.chmod(outfile, 0o755)
 
 
-def make_exec(build_dir: str, target: str):
-    pass
+def make_exec(build_dir: str, output_dir: str, target: str, name: Optional[str]):
+    if name is None:
+        name = target
+    cmakeBuild = os.path.join(build_dir, "cmake-build")
+    cmakeSrc = os.path.join(build_dir, "app-src-dir")
+    os.makedirs(cmakeSrc, exist_ok=True)
+
+    template = os.path.join(TEMPLATE_DIR, 'app.cpp')
+    outfile = os.path.join(cmakeSrc, f'app.cpp')
+
+    replace = {
+        APP_REPLACE: target,
+        PY_REPLACE: _get_py_version()
+    }
+
+    _do_replace(template, outfile, replace)
+
+    shutil.copy(os.path.join(TEMPLATE_DIR, "CMakeLists.txt"), cmakeSrc)
+
+    sp.run(["cmake", "-S", cmakeSrc, "-B", cmakeBuild, f"-DEXEC_NAME={name}"])
+    sp.run(["cmake", "--build", cmakeBuild])
+
+    if isWindows():
+        execName = f'{name}.exe'
+    else:
+        execName = name
+
+    shutil.copy(os.path.join(cmakeBuild, execName), os.path.join(output_dir, execName))

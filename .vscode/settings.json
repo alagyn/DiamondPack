@@ -1,3 +1,9 @@
 {
-    "python.analysis.exclude": ["test-dist"]
+    "python.analysis.exclude": [
+        "test-dist"
+    ],
+    "files.associations": {
+        ".style.yapf": "properties",
+        "iostream": "cpp"
+    }
 }

@@ -2,3 +2,4 @@ build
 wheel
 setuptools
 twine
+cmake
