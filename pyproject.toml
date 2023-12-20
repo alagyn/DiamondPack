@@ -20,7 +20,12 @@ classifiers = [
     "Topic :: Utilities",
 ]
 
-dependencies = ["build", "setuptools", "wheel", "tomli; python_ver < '3.12'"]
+dependencies = [
+    "build",
+    "setuptools",
+    "wheel",
+    "tomli ; python_version < '3.11'",
+]
 
 [project.urls]
 Repository = "https://github.com/alagyn/DiamondPack"
