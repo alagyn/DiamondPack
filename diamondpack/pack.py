@@ -8,23 +8,20 @@ import glob
 import re
 import sysconfig
 
-from diamondpack.utils import isWindows
+from diamondpack.dpconfig import DPScript
 
-# TODO use logging
+IS_WINDOWS = sys.platform == 'win32'
 
 
-def build_env(build_dir: str, python_exec: Optional[str], wheels: List[str], require: Optional[str]):
+def build_env(build_dir: str, wheels: List[str]):
     """
     Creates a virtual env and optionally installs requirements
 
     :param build_dir: Output build directory
-    :param python_exec: The python executable used to created venv
     :param wheels: A list of wheels to install into the venv
-    :param require: Filename of requirements file
     """
 
-    if python_exec is None:
-        python_exec = sys.executable
+    python_exec = sys.executable
 
     venvDir = os.path.join(build_dir, 'venv')
 
@@ -33,28 +30,23 @@ def build_env(build_dir: str, python_exec: Optional[str], wheels: List[str], req
 
     sp.run([python_exec, '-m', 'venv', venvDir, '--copies'])
 
-    if isWindows():
+    if IS_WINDOWS:
         venvBin = os.path.join(venvDir, "Scripts")
     else:
         venvBin = os.path.join(venvDir, "bin")
 
     venvExec = os.path.join(venvBin, "python")
 
-    if require is not None:
-        print("Installing requirements")
-        sp.run([
-            "PIP_DISABLE_PIP_VERSION_CHECK=1",
+    if len(wheels) > 0:
+        print("Installing wheels")
+        args = [
             venvExec,
             "-m",
             "pip",
             "install",
-            "-r",
-            require,
-        ])
-
-    if len(wheels) > 0:
-        print("Installing wheels")
-        args = [venvExec, "-m", "pip", "install"]
+            "--disable-pip-version-check",
+            "--force-reinstall",
+        ]
         args.extend(wheels)
         sp.run(args)
 
@@ -75,7 +67,7 @@ def build_env(build_dir: str, python_exec: Optional[str], wheels: List[str], req
     for f in glob.glob(os.path.join(venvBin, "python*")):
         os.remove(f)
 
-    if isWindows():
+    if IS_WINDOWS:
         # TODO
         pass
     else:
@@ -136,15 +128,12 @@ def _get_py_version() -> str:
     return f'python{sys.version_info.major}.{sys.version_info.minor}'
 
 
-def make_script(output_dir: str, target: str, name: Optional[str]):
-    if name is None:
-        name = target
-
-    if isWindows():
-        name = f'{name}.bat'
+def make_script(output_dir: str, script: DPScript):
+    if IS_WINDOWS:
+        name = f'{script.name}.bat'
         template = os.path.join(TEMPLATE_DIR, 'app.bat')
     else:
-        name = f'{name}.sh'
+        name = f'{script.name}.sh'
         template = os.path.join(TEMPLATE_DIR, 'app.sh')
 
     outfile = os.path.join(output_dir, name)
@@ -156,13 +145,12 @@ def make_script(output_dir: str, target: str, name: Optional[str]):
 
     _do_replace(template, outfile, replace)
 
-    if not isWindows():
+    if not IS_WINDOWS:
         os.chmod(outfile, 0o755)
 
 
-def make_exec(build_dir: str, output_dir: str, target: str, name: Optional[str]):
-    if name is None:
-        name = target
+def make_exec(build_dir: str, output_dir: str, script: DPScript):
+
     cmakeBuild = os.path.join(build_dir, "cmake-build")
     cmakeSrc = os.path.join(build_dir, "app-src-dir")
     os.makedirs(cmakeSrc, exist_ok=True)
@@ -199,7 +187,7 @@ def make_exec(build_dir: str, output_dir: str, target: str, name: Optional[str])
 
     print("------------- Copying executable -------------")
 
-    if isWindows():
+    if IS_WINDOWS:
         execName = f'{name}.exe'
         execPath = os.path.join(cmakeBuild, "Release", execName)
     else:

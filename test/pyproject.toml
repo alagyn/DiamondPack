@@ -4,16 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "example"
-authors = [
-    {name = "Alagyn", email = "fake@aol.com"}
-]
+authors = [{ name = "Alagyn", email = "fake@aol.com" }]
 version = "1.0.0"
 description = "A test module for testing"
-readme = {file = "README.md", content-type = "text/markdown"}
-license = {text = "MIT License"}
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { text = "MIT License" }
+
+[project.scripts]
+myScript = "examplePackage.myScript:main"
 
 [tool.setuptools]
-packages = [
-    "examplePackage"
-]
+packages = ["examplePackage"]
 
+[tool.diamondpack]
+mode = "app"
