@@ -66,14 +66,14 @@ def main():
 
     if build_mode == "script":
         if IS_WINDOWS:
-            script = f"myScript.bat"
+            script = "myScript.bat"
         else:
-            script = f"myScript.sh"
+            script = "./myScript.sh"
     else:
         if IS_WINDOWS:
-            script = f"myScript.exe"
+            script = "myScript.exe"
         else:
-            script = f"myScript"
+            script = "./myScript"
 
     print("Executing Test Script")
 

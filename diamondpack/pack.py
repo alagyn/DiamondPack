@@ -148,13 +148,19 @@ class DiamondPacker:
             folder, fname = os.path.split(filename)
             fname = os.path.splitext(fname)[0]
             cache = os.path.join(folder, "__pycache__", fname + "*.pyc")
-            if len(glob.glob(cache)) > 0:
-                os.remove(filename)
+            try:
+                cacheFile = glob.glob(cache)[0]
+            except IndexError:
+                return
+            # remove the original file
+            os.remove(filename)
+            # rename the cached file
+            shutil.move(cacheFile, os.path.join(folder, fname + ".pyc"))
 
         for xxx in glob.glob(os.path.join(packageDir, "*/**.py"), recursive=True):
             keepCache(xxx)
 
-        stdlibBlacklist = ["encodings", "collections", "re", "importlib"]
+        stdlibBlacklist = ["encodings"]
         BL_RE = re.compile("|".join(stdlibBlacklist))
 
         for xxx in glob.glob(os.path.join(privateStdLib, "*/**.py"), recursive=True):
