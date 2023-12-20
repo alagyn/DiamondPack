@@ -1,6 +1,6 @@
 {
     "python.analysis.exclude": [
-        "test-dist"
+        "test-dist", "test/*"
     ],
     "files.associations": {
         ".style.yapf": "properties",
