@@ -126,16 +126,44 @@ class DiamondPacker:
 
         log("Copying stdlib")
         # Copy the stdlib
-        stdlibDir = sysconfig.get_path('stdlib')
+        globalStdlib = sysconfig.get_path('stdlib')
+
         if _IS_WINDOWS:
-            shutil.copytree(stdlibDir, os.path.join(self._venvDir, "stdlib", "Lib"))
+            privateStdLib = os.path.join(self._venvDir, "stdlib", "Lib")
         else:
-            shutil.copytree(stdlibDir, os.path.join(
-                self._venvDir,
-                "stdlib",
-                "lib",
-                _PY_VERSION,
-            ))
+            privateStdLib = os.path.join(self._venvDir, "stdlib", "lib", _PY_VERSION)
+
+        shutil.copytree(globalStdlib, privateStdLib)
+
+        log("Cleaning environment")
+        if _IS_WINDOWS:
+            packageDir = os.path.join(self._venvDir, "Lib", "site-packages")
+        else:
+            packageDir = os.path.join(self._venvDir, "lib", _PY_VERSION, "site-packages")
+
+        for xxx in glob.glob(os.path.join(packageDir, "*.dist-info")):
+            shutil.rmtree(xxx)
+
+        def keepCache(filename: str):
+            folder, fname = os.path.split(filename)
+            fname = os.path.splitext(fname)[0]
+            cache = os.path.join(folder, "__pycache__", fname + "*.pyc")
+            if len(glob.glob(cache)) > 0:
+                os.remove(filename)
+
+        for xxx in glob.glob(os.path.join(packageDir, "*/**.py"), recursive=True):
+            keepCache(xxx)
+
+        stdlibBlacklist = ["encodings", "collections", "re", "importlib"]
+        BL_RE = re.compile("|".join(stdlibBlacklist))
+
+        for xxx in glob.glob(os.path.join(privateStdLib, "*/**.py"), recursive=True):
+            if BL_RE.search(xxx) is not None:
+                continue
+            keepCache(xxx)
+
+        shutil.copy(os.path.join(_TEMPLATE_DIR, "diamondpack-license.txt"), self._outputDir)
+
         log("Success - Virtual Environment")
 
     def _get_cmd(self, script: DPScript) -> str:
