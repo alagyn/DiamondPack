@@ -19,11 +19,6 @@ Template app
 #include <string>
 #include <vector>
 
-constexpr char SCRIPT_NAME[] = "@@SCRIPT@@";
-constexpr char PYTHON_VER[] = "@@PYTHON@@";
-
-#define DIAMOND_LOGGING
-
 #ifdef DIAMOND_LOGGING
     #define LOG(x) std::cout << x
 #else
@@ -111,7 +106,7 @@ int main(int argc, char** argv)
     }
 
     ss = std::stringstream();
-    ss << installDir << "/venv/lib/" << PYTHON_VER << "/site-packages";
+    ss << installDir << "/venv/lib/@@PYTHON@@/site-packages";
     if(!write_env("PYTHONPATH", ss.str()))
     {
         return -1;
@@ -134,8 +129,9 @@ int main(int argc, char** argv)
 #else
        << "/venv/bin/python"
 #endif
-       << " -m " << SCRIPT_NAME;
+          " @@COMMAND@@ ";
 
+    // Add all remaining cmd line args
     for(int i = 1; i < argc; ++i)
     {
         ss << " " << argv[i];

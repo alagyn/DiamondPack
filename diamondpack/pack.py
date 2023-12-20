@@ -8,36 +8,66 @@ import glob
 import re
 import sysconfig
 
-from diamondpack.dpconfig import DPScript
+from diamondpack.dpconfig import DPScript, DPConfig, DPMode
 
-IS_WINDOWS = sys.platform == 'win32'
+_IS_WINDOWS = sys.platform == 'win32'
+
+_CMD_REPLACE = '@@COMMAND@@'
+_PY_REPLACE = '@@PYTHON@@'
+
+_PACKAGE_DIR = os.path.split(__file__)[0]
+_TEMPLATE_DIR = os.path.join(_PACKAGE_DIR, "app-templates")
+
+_REPLACE_RE = re.compile("@@[A-Z]+@@")
+
+_PY_VERSION = f'python{sys.version_info.major}.{sys.version_info.minor}'
 
 
-def build_env(build_dir: str, wheels: List[str]):
-    """
-    Creates a virtual env and optionally installs requirements
+def _do_replace(template: str, outfile: str, replacements: Dict[str, str]) -> None:
+    with open(outfile, mode='w') as outF, open(os.path.join(_TEMPLATE_DIR, template), mode='r') as inF:
+        for line in inF:
+            line = _REPLACE_RE.sub(lambda x: replacements[x.group(0)], line)
+            outF.write(line)
 
-    :param build_dir: Output build directory
-    :param wheels: A list of wheels to install into the venv
-    """
 
-    python_exec = sys.executable
+class DiamondPacker:
 
-    venvDir = os.path.join(build_dir, 'venv')
+    def __init__(self, config: DPConfig) -> None:
+        self._config = config
+        self._buildDir = config.build_dir
+        self._outputDir = os.path.join("dist", config.name)
+        self._venvDir = os.path.join(self._outputDir, "venv")
+        if _IS_WINDOWS:
+            self.venvBin = os.path.join(self._venvDir, "Scripts")
+        else:
+            self.venvBin = os.path.join(self._venvDir, "bin")
 
-    if os.path.exists(venvDir):
-        shutil.rmtree(venvDir)
+    def pack(self):
+        self._build_env()
 
-    sp.run([python_exec, '-m', 'venv', venvDir, '--copies'])
+        for script in self._config.scripts:
+            if self._config.mode == DPMode.APP:
+                self._make_exec(script)
+            else:
+                self._make_script(script)
 
-    if IS_WINDOWS:
-        venvBin = os.path.join(venvDir, "Scripts")
-    else:
-        venvBin = os.path.join(venvDir, "bin")
+    def _build_env(self):
+        """
+        Creates a virtual env and optionally installs requirements
 
-    venvExec = os.path.join(venvBin, "python")
+        :param build_dir: Output build directory
+        :param wheels: A list of wheels to install into the venv
+        """
 
-    if len(wheels) > 0:
+        python_exec = sys.executable
+
+        if os.path.exists(self._venvDir):
+            shutil.rmtree(self._venvDir)
+
+        sp.run([python_exec, '-m', 'venv', self._venvDir, '--copies'])
+
+        venvExec = os.path.join(self.venvBin, "python")
+
         print("Installing wheels")
         args = [
             venvExec,
@@ -47,154 +77,135 @@ def build_env(build_dir: str, wheels: List[str]):
             "--disable-pip-version-check",
             "--force-reinstall",
         ]
-        args.extend(wheels)
+        args.extend(self._config.wheels)
         sp.run(args)
 
-    venvCfgFile = os.path.join(venvDir, "pyvenv.cfg")
-    os.remove(venvCfgFile)
+        venvCfgFile = os.path.join(self._venvDir, "pyvenv.cfg")
+        os.remove(venvCfgFile)
 
-    # remove activate scripts
-    for f in glob.glob(os.path.join(venvBin, "activate*")):
-        os.remove(f)
-    for f in glob.glob(os.path.join(venvBin, "Activate*")):
-        os.remove(f)
-    for f in glob.glob(os.path.join(venvBin, "deactivate*")):
-        os.remove(f)
-    for f in glob.glob(os.path.join(venvBin, "Deactivate*")):
-        os.remove(f)
-    for f in glob.glob(os.path.join(venvBin, "pip*")):
-        os.remove(f)
-    for f in glob.glob(os.path.join(venvBin, "python*")):
-        os.remove(f)
+        # Remove scripts
+        toRemove = ["*ctivate*", "pip*", "python*"]
 
-    if IS_WINDOWS:
-        # TODO
-        pass
-    else:
-        out = sp.run(["ldd", python_exec], capture_output=True)
-        libStr = out.stdout.decode()
-        libList = [x.strip() for x in libStr.split("\n")]
-        LIB_RE = re.compile(r'[a-zA-Z._0-9\-]+ => (?P<filename>[a-zA-Z._0-9\-/\\]+) \(0x[0-9a-f]+\)')
+        for xxx in toRemove:
+            for f in glob.glob(os.path.join(self.venvBin, xxx)):
+                os.remove(f)
 
-        for x in libList:
-            m = LIB_RE.fullmatch(x)
-            if m is None:
-                continue
-            file = m.group('filename')
-            libName = os.path.split(file)[1]
-            shutil.copyfile(file, os.path.join(venvBin, libName))
+        # Copy required libraries
+        if _IS_WINDOWS:
+            # TODO
+            pass
+        else:
+            out = sp.run(["ldd", python_exec], capture_output=True)
+            libStr = out.stdout.decode()
+            libList = [x.strip() for x in libStr.split("\n")]
+            LIB_RE = re.compile(r'[a-zA-Z._0-9\-]+ => (?P<filename>[a-zA-Z._0-9\-/\\]+) \(0x[0-9a-f]+\)')
 
-    # Copy the python executable
-    newExec = os.path.join(venvBin, "python")
-    if isWindows():
-        newExec += ".exe"
-        python_exec = os.path.join(sysconfig.get_config_var("installed_base"), "python.exe")
-    shutil.copyfile(python_exec, newExec)
-    # Set permissions
-    os.chmod(newExec, 0o755)
-    
-    # Copy the stdlib
-    stdlibDir = sysconfig.get_path('stdlib')
-    if isWindows():
-        shutil.copytree(stdlibDir, os.path.join(
-            venvDir, "stdlib", "Lib"
-        ))
-    else:
-        shutil.copytree(stdlibDir, os.path.join(
-            venvDir,
-            "stdlib",
-            "lib",
-            _get_py_version(),
-        ))
+            for x in libList:
+                m = LIB_RE.fullmatch(x)
+                if m is None:
+                    continue
+                file = m.group('filename')
+                libName = os.path.split(file)[1]
+                shutil.copyfile(file, os.path.join(self.venvBin, libName))
 
+        # Copy the python executable
+        newExec = os.path.join(self.venvBin, "python")
+        if _IS_WINDOWS:
+            newExec += ".exe"
+            python_exec = os.path.join(sysconfig.get_config_var("installed_base"), "python.exe")
+        shutil.copyfile(python_exec, newExec)
+        # Set permissions
+        os.chmod(newExec, 0o755)
 
-APP_REPLACE = '@@SCRIPT@@'
-PY_REPLACE = '@@PYTHON@@'
+        # Copy the stdlib
+        stdlibDir = sysconfig.get_path('stdlib')
+        if _IS_WINDOWS:
+            shutil.copytree(stdlibDir, os.path.join(self._venvDir, "stdlib", "Lib"))
+        else:
+            shutil.copytree(stdlibDir, os.path.join(
+                self._venvDir,
+                "stdlib",
+                "lib",
+                _PY_VERSION,
+            ))
 
-PACKAGE_DIR = os.path.split(__file__)[0]
-TEMPLATE_DIR = os.path.join(PACKAGE_DIR, "app-templates")
+    def _get_cmd(self, script: DPScript) -> str:
+        if script.entry is not None:
+            return f' -c \\"from {script.path} import {script.entry}; exit({script.entry}())\\"'
+        else:
+            return f' -m {script.path}'
 
-REPLACE_RE = re.compile("@@[A-Z]+@@")
+    def _make_script(self, script: DPScript):
 
+        cmd = self._get_cmd(script)
 
-def _do_replace(template: str, outfile: str, replacements: Dict[str, str]) -> None:
-    with open(outfile, mode='w') as outF, open(template, mode='r') as inF:
-        for line in inF:
-            line = REPLACE_RE.sub(lambda x: replacements[x.group(0)], line)
-            outF.write(line)
+        if _IS_WINDOWS:
+            extension = ".bat"
+        else:
+            extension = ".sh"
 
+        template = "app" + extension
+        outfile = os.path.join(self._outputDir, script.name + extension)
 
-def _get_py_version() -> str:
-    return f'python{sys.version_info.major}.{sys.version_info.minor}'
+        replace = {
+            _CMD_REPLACE: cmd,
+            _PY_REPLACE: _PY_VERSION
+        }
 
+        _do_replace(template, outfile, replace)
 
-def make_script(output_dir: str, script: DPScript):
-    if IS_WINDOWS:
-        name = f'{script.name}.bat'
-        template = os.path.join(TEMPLATE_DIR, 'app.bat')
-    else:
-        name = f'{script.name}.sh'
-        template = os.path.join(TEMPLATE_DIR, 'app.sh')
+        if not _IS_WINDOWS:
+            os.chmod(outfile, 0o755)
 
-    outfile = os.path.join(output_dir, name)
+    def _make_exec(self, script: DPScript):
 
-    replace = {
-        APP_REPLACE: target,
-        PY_REPLACE: _get_py_version()
-    }
+        cmd = self._get_cmd(script)
 
-    _do_replace(template, outfile, replace)
+        cmakeBuild = os.path.join(self._buildDir, "dp-cmake-build")
+        cmakeSrc = os.path.join(self._buildDir, "dp-app-src-dir")
+        os.makedirs(cmakeSrc, exist_ok=True)
 
-    if not IS_WINDOWS:
-        os.chmod(outfile, 0o755)
+        template = 'app.cpp'
+        outfile = os.path.join(cmakeSrc, f'app.cpp')
 
+        replace = {
+            _CMD_REPLACE: cmd,
+            _PY_REPLACE: _PY_VERSION
+        }
 
-def make_exec(build_dir: str, output_dir: str, script: DPScript):
+        _do_replace(template, outfile, replace)
 
-    cmakeBuild = os.path.join(build_dir, "cmake-build")
-    cmakeSrc = os.path.join(build_dir, "app-src-dir")
-    os.makedirs(cmakeSrc, exist_ok=True)
+        shutil.copy(os.path.join(_TEMPLATE_DIR, "CMakeLists.txt"), cmakeSrc)
 
-    template = os.path.join(TEMPLATE_DIR, 'app.cpp')
-    outfile = os.path.join(cmakeSrc, f'app.cpp')
+        configureParams = ["cmake", "-S", cmakeSrc, "-B", cmakeBuild, f"-DEXEC_NAME={script.name}"]
 
-    replace = {
-        APP_REPLACE: target,
-        PY_REPLACE: _get_py_version()
-    }
+        buildParams = ["cmake", "--build", cmakeBuild]
 
-    _do_replace(template, outfile, replace)
+        if _IS_WINDOWS:
+            buildParams.append("--config=Release")
+        else:
+            configureParams.append("-DCMAKE_BUILD_TYPE=Release")
 
-    shutil.copy(os.path.join(TEMPLATE_DIR, "CMakeLists.txt"), cmakeSrc)
+        print("------------- Building executable -------------")
 
-    configureParams = [
-        "cmake", "-S", cmakeSrc, "-B", cmakeBuild, f"-DEXEC_NAME={name}"
-    ]
+        run = sp.run(configureParams)
+        if run.returncode != 0:
+            raise RuntimeError("Unable to configure cmake")
 
-    buildParams = [
-        "cmake", "--build", cmakeBuild
-    ]
+        run = sp.run(buildParams)
+        if run.returncode != 0:
+            raise RuntimeError("Unable to compile application")
 
-    if isWindows():
-        buildParams.append("--config=Release")
-    else:
-        configureParams.append("-DCMAKE_BUILD_TYPE=Release")
+        print("------------- Copying executable -------------")
 
-    print("------------- Building executable -------------")
+        if _IS_WINDOWS:
+            execName = f'{script.name}.exe'
+            execPath = os.path.join(cmakeBuild, "Release", execName)
+        else:
+            execName = script.name
+            execPath = os.path.join(cmakeBuild, execName)
 
-    sp.run(configureParams)
-    sp.run(buildParams)
+        if not os.path.isfile(execPath):
+            raise RuntimeError(f"Cannot find built executable: {execPath}")
 
-    print("------------- Copying executable -------------")
-
-    if IS_WINDOWS:
-        execName = f'{name}.exe'
-        execPath = os.path.join(cmakeBuild, "Release", execName)
-    else:
-        execName = name
-        execPath = os.path.join(cmakeBuild, execName)
-
-    if not os.path.isfile(execPath):
-        raise RuntimeError(f"Cannot find built executable: {execPath}")
-
-    shutil.copy(execPath, os.path.join(output_dir, execName))
+        shutil.copy(execPath, os.path.join(self._outputDir, execName))

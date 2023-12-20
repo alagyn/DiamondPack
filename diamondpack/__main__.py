@@ -7,11 +7,13 @@ import re
 import glob
 
 from diamondpack.dpconfig import DPConfig, DPMode, DPScript
-from diamondpack.pack import build_env, make_script, make_exec
+from diamondpack.pack import DiamondPacker
+
+VERSION = "1.2.0"
 
 PROJECT_FILE = "pyproject.toml"
 
-SCRIPT_RE = re.compile(r'((?P<name>[^:]+):)?(?P<path>[^:]+)(:(?P<entry>.+))?')
+SCRIPT_RE = re.compile(r'((?P<name>[^=]+)=)?(?P<path>[^:]+):((?P<entry>.+))?')
 
 IS_TERMINAL = sys.stdout.isatty()
 ERR = "\x1B[91;1m"
@@ -31,7 +33,7 @@ def parse_cli() -> Optional[DPConfig]:
     parser.add_argument(
         "--scripts",
         nargs="+",
-        help="List of scripts to pack. Of the form: [optional-output-name]:[dotted-path-to-module]:[optional-entry-point]"
+        help="List of scripts to pack. Of the form: [optional-output-name]=[dotted-path-to-module]:[optional-entry-point]"
     )
     parser.add_argument("--name", help="Overall package name, a.k.a the output folder name", required=True)
     parser.add_argument('--mode', choices=["script", "app"], default="script")
@@ -131,7 +133,7 @@ def parse_project() -> Optional[DPConfig]:
     config.wheels = [files[0]]
 
     error = False
-    for name, value in scripts:
+    for name, value in scripts.items():
         m = SCRIPT_RE.fullmatch(value)
         if m is None:
             logErr(f"Invalid script spec: '{value}'")
@@ -144,26 +146,34 @@ def parse_project() -> Optional[DPConfig]:
     if error:
         return None
 
+    return config
+
 
 def main():
+    print("-----------------------------------------")
+    print(f"DiamondPack - v{VERSION}")
+    print("-----------------------------------------")
+
     if len(sys.argv) == 1 and os.path.exists(PROJECT_FILE):
+        print("Loading pyproject.toml")
         config = parse_project()
     else:
         config = parse_cli()
 
     if config is None:
-        return
+        return -1
 
-    outputdir = os.path.join("build", config.name)
+    print("Packing -", config.name)
+    packer = DiamondPacker(config)
+    try:
+        packer.pack()
+    except Exception as err:
+        logErr("Unabled to pack:")
+        logErr(str(err))
+        return -1
 
-    build_env(outputdir, config.wheels)
-
-    for script in config.scripts:
-        if config.mode == DPMode.APP:
-            make_exec("build", outputdir, script)
-        else:
-            make_script(outputdir, script)
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    exit(main())

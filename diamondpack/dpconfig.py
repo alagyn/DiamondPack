@@ -36,4 +36,7 @@ class DPConfig:
         self.scripts: List[DPScript] = []
         # Overall package name
         self.name = ""
+        # Packaging mode
         self.mode: DPMode = DPMode.APP
+        # Build directory
+        self.build_dir = "build"
