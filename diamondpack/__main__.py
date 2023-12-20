@@ -5,8 +5,8 @@ from typing import Optional
 import re
 import glob
 
-if sys.version_info.major == 3 and sys.version_info.minor < 12:
-    import tomli
+if sys.version_info.major == 3 and sys.version_info.minor < 11:
+    import tomli  # type: ignore
 else:
     import tomllib as tomli
 
@@ -19,6 +19,7 @@ VERSION = "1.2.0"
 PROJECT_FILE = "pyproject.toml"
 
 SCRIPT_RE = re.compile(r'((?P<name>[^=]+)=)?(?P<path>[^:]+)(:(?P<entry>.+))?')
+
 
 def parse_cli() -> Optional[DPConfig]:
     parser = ArgumentParser(description="A Python Application Packager")
@@ -143,9 +144,9 @@ def parse_project() -> Optional[DPConfig]:
 
 
 def main():
-    print("-----------------------------------------")
-    print(f"DiamondPack - v{VERSION}")
-    print("-----------------------------------------")
+    log("-----------------------------------------")
+    log(f"        DiamondPack - v{VERSION}")
+    log("-----------------------------------------")
 
     if len(sys.argv) == 1 and os.path.exists(PROJECT_FILE):
         log("Loading pyproject.toml")
