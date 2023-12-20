@@ -9,6 +9,7 @@ import re
 import sysconfig
 
 from diamondpack.dpconfig import DPScript, DPConfig, DPMode
+from diamondpack.dplog import log
 
 _IS_WINDOWS = sys.platform == 'win32'
 
@@ -43,9 +44,11 @@ class DiamondPacker:
             self.venvBin = os.path.join(self._venvDir, "bin")
 
     def pack(self):
+        log(f"Building Virtual Environment")
         self._build_env()
 
         for script in self._config.scripts:
+            log(f"Generating app - {script.name}")
             if self._config.mode == DPMode.APP:
                 self._make_exec(script)
             else:
@@ -68,7 +71,7 @@ class DiamondPacker:
 
         venvExec = os.path.join(self.venvBin, "python")
 
-        print("Installing wheels")
+        log("Installing wheels")
         args = [
             venvExec,
             "-m",
@@ -91,9 +94,12 @@ class DiamondPacker:
                 os.remove(f)
 
         # Copy required libraries
+        log("Copying required libraries")
         if _IS_WINDOWS:
-            # TODO
-            pass
+            libpath = sysconfig.get_config_var("installed_base")
+            for file in glob.glob(os.path.join(libpath, "*.dll")):
+                fname = os.path.split(file)[1]
+                shutil.copyfile(file, os.path.join(self.venvBin, fname))
         else:
             out = sp.run(["ldd", python_exec], capture_output=True)
             libStr = out.stdout.decode()
@@ -108,6 +114,7 @@ class DiamondPacker:
                 libName = os.path.split(file)[1]
                 shutil.copyfile(file, os.path.join(self.venvBin, libName))
 
+        log("Copying python executable")
         # Copy the python executable
         newExec = os.path.join(self.venvBin, "python")
         if _IS_WINDOWS:
@@ -117,6 +124,7 @@ class DiamondPacker:
         # Set permissions
         os.chmod(newExec, 0o755)
 
+        log("Copying stdlib")
         # Copy the stdlib
         stdlibDir = sysconfig.get_path('stdlib')
         if _IS_WINDOWS:
@@ -128,12 +136,13 @@ class DiamondPacker:
                 "lib",
                 _PY_VERSION,
             ))
+        log("Success - Virtual Environment")
 
     def _get_cmd(self, script: DPScript) -> str:
         if script.entry is not None:
-            return f' -c \\"from {script.path} import {script.entry}; exit({script.entry}())\\"'
+            return f'-c "from {script.path} import {script.entry}; exit({script.entry}())"'
         else:
-            return f' -m {script.path}'
+            return f'-m {script.path}'
 
     def _make_script(self, script: DPScript):
 
@@ -157,9 +166,13 @@ class DiamondPacker:
         if not _IS_WINDOWS:
             os.chmod(outfile, 0o755)
 
+        log(f'Success - {script.name}')
+
     def _make_exec(self, script: DPScript):
 
         cmd = self._get_cmd(script)
+        # Escape quotes
+        cmd = re.sub(r'"', '\\"', cmd)
 
         cmakeBuild = os.path.join(self._buildDir, "dp-cmake-build")
         cmakeSrc = os.path.join(self._buildDir, "dp-app-src-dir")
@@ -186,7 +199,7 @@ class DiamondPacker:
         else:
             configureParams.append("-DCMAKE_BUILD_TYPE=Release")
 
-        print("------------- Building executable -------------")
+        log(f"Building executable - {script.name}")
 
         run = sp.run(configureParams)
         if run.returncode != 0:
@@ -196,7 +209,7 @@ class DiamondPacker:
         if run.returncode != 0:
             raise RuntimeError("Unable to compile application")
 
-        print("------------- Copying executable -------------")
+        log(f"Copying executable - {script.name}")
 
         if _IS_WINDOWS:
             execName = f'{script.name}.exe'
@@ -209,3 +222,5 @@ class DiamondPacker:
             raise RuntimeError(f"Cannot find built executable: {execPath}")
 
         shutil.copy(execPath, os.path.join(self._outputDir, execName))
+
+        log(f'Success - {script.name}')

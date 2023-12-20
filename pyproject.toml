@@ -9,7 +9,6 @@ version = "1.2.0"
 description = "A simple packager for creating distributable python applications"
 readme = { file = "README.md", content-type = "text/markdown" }
 license = { file = "LICENSE" }
-dependencies = ["build", "setuptools", "wheel"]
 keywords = ["package", "distribute"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -20,6 +19,8 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Utilities",
 ]
+
+dependencies = ["build", "setuptools", "wheel", "tomli; python_ver < '3.12'"]
 
 [project.urls]
 Repository = "https://github.com/alagyn/DiamondPack"

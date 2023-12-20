@@ -62,16 +62,18 @@ def main():
         print("Pack Failed: ", run.returncode)
         return
 
+    os.chdir(f"dist/{EXAMPLE}/")
+
     if build_mode == "script":
         if IS_WINDOWS:
-            script = f"dist/{EXAMPLE}/myScript.bat"
+            script = f"myScript.bat"
         else:
-            script = f"dist/{EXAMPLE}/myScript.sh"
+            script = f"myScript.sh"
     else:
         if IS_WINDOWS:
-            script = f"dist/{EXAMPLE}/myScript.exe"
+            script = f"myScript.exe"
         else:
-            script = f"dist/{EXAMPLE}/myScript"
+            script = f"myScript"
 
     print("Executing Test Script")
 

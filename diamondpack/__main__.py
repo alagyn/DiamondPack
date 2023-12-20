@@ -1,31 +1,24 @@
 from argparse import ArgumentParser
 import os
 import sys
-import tomllib
 from typing import Optional
 import re
 import glob
 
+if sys.version_info.major == 3 and sys.version_info.minor < 12:
+    import tomli
+else:
+    import tomllib as tomli
+
 from diamondpack.dpconfig import DPConfig, DPMode, DPScript
 from diamondpack.pack import DiamondPacker
+from diamondpack.dplog import logErr, log
 
 VERSION = "1.2.0"
 
 PROJECT_FILE = "pyproject.toml"
 
-SCRIPT_RE = re.compile(r'((?P<name>[^=]+)=)?(?P<path>[^:]+):((?P<entry>.+))?')
-
-IS_TERMINAL = sys.stdout.isatty()
-ERR = "\x1B[91;1m"
-OFF = "\x1B[0m"
-
-
-def logErr(msg: str) -> None:
-    if IS_TERMINAL:
-        print(f'{ERR}Error: {msg}{OFF}')
-    else:
-        print(f'Error: {msg}')
-
+SCRIPT_RE = re.compile(r'((?P<name>[^=]+)=)?(?P<path>[^:]+)(:(?P<entry>.+))?')
 
 def parse_cli() -> Optional[DPConfig]:
     parser = ArgumentParser(description="A Python Application Packager")
@@ -78,7 +71,7 @@ def parse_cli() -> Optional[DPConfig]:
 
 def parse_project() -> Optional[DPConfig]:
     with open(PROJECT_FILE, mode='rb') as f:
-        root = tomllib.load(f)
+        root = tomli.load(f)
 
     config = DPConfig()
 
@@ -155,7 +148,7 @@ def main():
     print("-----------------------------------------")
 
     if len(sys.argv) == 1 and os.path.exists(PROJECT_FILE):
-        print("Loading pyproject.toml")
+        log("Loading pyproject.toml")
         config = parse_project()
     else:
         config = parse_cli()
@@ -163,7 +156,7 @@ def main():
     if config is None:
         return -1
 
-    print("Packing -", config.name)
+    log(f"Packing - {config.name}")
     packer = DiamondPacker(config)
     try:
         packer.pack()

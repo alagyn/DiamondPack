@@ -70,12 +70,6 @@ bool write_env(const char* name, const std::string& value)
     return true;
 }
 
-void exec(const std::string& program)
-{
-    LOG("Executing: " << program << std::endl);
-    std::system(program.c_str());
-}
-
 int main(int argc, char** argv)
 {
     // First we parse out the home directory of this application
@@ -91,6 +85,7 @@ int main(int argc, char** argv)
 
     std::string installDir(appPath, lastSlash);
 
+    // Fallback if we get empty string
     if(installDir.empty())
     {
         installDir = std::filesystem::current_path().string();
@@ -98,6 +93,7 @@ int main(int argc, char** argv)
 
     LOG("App location: " << installDir << std::endl);
 
+    // Set up the PYTHONHOME var
     std::stringstream ss;
     ss << installDir << "/venv/stdlib";
     if(!write_env("PYTHONHOME", ss.str()))
@@ -105,8 +101,15 @@ int main(int argc, char** argv)
         return -1;
     }
 
+    // Set up the PYTHONPATH var
     ss = std::stringstream();
-    ss << installDir << "/venv/lib/@@PYTHON@@/site-packages";
+    ss << installDir
+       << "/venv/lib/"
+#ifndef _MSC_VER
+          "@@PYTHON@@/"
+#endif
+          "site-packages";
+
     if(!write_env("PYTHONPATH", ss.str()))
     {
         return -1;
@@ -121,7 +124,7 @@ int main(int argc, char** argv)
     }
 #endif
 
-    // Exec the program
+    // Set up exec string
     ss = std::stringstream();
     ss << installDir
 #ifdef _MSC_VER
@@ -137,7 +140,9 @@ int main(int argc, char** argv)
         ss << " " << argv[i];
     }
 
-    exec(ss.str());
+    // Exec the app
+    LOG("Executing: " << program << std::endl);
+    std::system(ss.str().c_str());
 
     return 0;
 }

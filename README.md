@@ -16,3 +16,9 @@ Enables Python applications to easily run on systems that don't have Python inst
 ## Usage:
 
 ### Coming soon...
+
+
+TODO:
+- Delete any raw .py files from venv if they have .pyc versions
+- delete any .dist-info folders
+- add config options to allow users to white/blacklist specific stdlib stuff
