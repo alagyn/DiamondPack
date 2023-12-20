@@ -15,7 +15,14 @@ Enables Python applications to easily run on systems that don't have Python inst
 
 ## Install:
 
+Default install:
 `pip install diamondpack`
+
+If you don't already have a version of CMake installed, in order to use the "app" mode,
+install the optional cmake package  
+`pip install diamondpack[app]`
+or
+`pip install cmake`
 
 ## Usage:
 
@@ -29,15 +36,28 @@ myScript = "examplePackage.myScript:main"
 mode = "app"
 ```
 Mode can be `app` or `script`:
-- `app` will generate a compiled executable
+- `app` will generate a compiled executable (requires CMake and a compiler installed)
 - `script` will generate a bash (Linux) or batch (Windows) script
 
 
 ### 2. Build your application into a wheel
-`python -m build --wheel`
+`python -m build --wheel`  
+Check out the `test` folder for an example package and its `pyproject.toml` configuration
 
 ### 3. Run diamondpack
-`python -m diamondpack`
+`python -m diamondpack` or, with a venv activated, simply run `diamondpack`  
+By default, running with no arguments will cause Diamondpack to parse your `pyproject.toml` for its configuration. For more advanced uses, there is also a CLI:
+```
+usage: __main__.py [-h] [--wheels WHEELS [WHEELS ...]] [--scripts SCRIPTS [SCRIPTS ...]] --name NAME [--mode {script,app}]
+
+options:
+  -h, --help            show this help message and exit
+  --wheels WHEELS [WHEELS ...]
+  --scripts SCRIPTS [SCRIPTS ...]
+                        List of scripts to pack. Of the form: [optional-output-name]=[dotted-path-to-module]:[optional-entry-point]
+  --name NAME           Overall package name, a.k.a the output folder name
+  --mode {script,app}
+```
 
 ### 4. Profit
 Your package will be placed in `dist/[package-name]-[version]/`
