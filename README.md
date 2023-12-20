@@ -44,5 +44,8 @@ Your package will be placed in `dist/[package-name]-[version]/`
 
 ## FAQ
 
-### Q) Do DiamondPack applications work cross-platform
-A) While DiamondPack itself is cross=-platform, packaged applications are only usable in the OS they were packaged on
+**Q) Do DiamondPack applications work cross-platform?**  
+A) While DiamondPack itself is cross-platform, packaged applications are only usable in the OS they were packaged on
+
+**Q) What is that cool snake doin in that there box?**  
+A) His name is Henry and he protects your packages
