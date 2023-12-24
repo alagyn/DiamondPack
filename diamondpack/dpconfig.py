@@ -40,3 +40,5 @@ class DPConfig:
         self.mode: DPMode = DPMode.APP
         # Build directory
         self.build_dir = "build"
+        # blacklisted stdlibs to not copy
+        self.stdlib_copy_block: List[str] = []

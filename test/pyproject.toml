@@ -18,3 +18,4 @@ packages = ["examplePackage"]
 
 [tool.diamondpack]
 mode = "app"
+stdlib-blacklist = ["email", "turtle", "unittest"]

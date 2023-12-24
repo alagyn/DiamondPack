@@ -133,7 +133,7 @@ class DiamondPacker:
         else:
             privateStdLib = os.path.join(self._venvDir, "stdlib", "lib", _PY_VERSION)
 
-        shutil.copytree(globalStdlib, privateStdLib)
+        shutil.copytree(globalStdlib, privateStdLib, ignore=shutil.ignore_patterns(*self._config.stdlib_copy_block))
 
         log("Cleaning environment")
         if _IS_WINDOWS:
@@ -160,8 +160,8 @@ class DiamondPacker:
         for xxx in glob.glob(os.path.join(packageDir, "*/**.py"), recursive=True):
             keepCache(xxx)
 
-        stdlibBlacklist = ["encodings"]
-        BL_RE = re.compile("|".join(stdlibBlacklist))
+        stdlibCacheBlacklist = ["encodings"]
+        BL_RE = re.compile("|".join(stdlibCacheBlacklist))
 
         for xxx in glob.glob(os.path.join(privateStdLib, "*/**.py"), recursive=True):
             if BL_RE.search(xxx) is not None:

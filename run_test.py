@@ -13,14 +13,9 @@ IS_WINDOWS = sys.platform == 'win32'
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument("run_mode", choices=["cli", "project"])
-    parser.add_argument("build_mode", choices=["app", "script"])
     parser.add_argument("--wheel", action="store_true", help="Force rebuilding of the test wheel")
 
     args = parser.parse_args()
-
-    run_mode = args.run_mode
-    build_mode = args.build_mode
 
     os.chdir(os.path.join(HOME, "test"))
 
@@ -38,25 +33,7 @@ def main():
     env = os.environ.copy()
     env["PYTHONPATH"] = HOME
 
-    if run_mode == "cli":
-        run = sp.run(
-            [
-                sys.executable,
-                "-m",
-                "diamondpack",
-                "--wheels",
-                WHEEL,
-                "--scripts",
-                "myScript=examplePackage.myScript",
-                "--name",
-                "example-1.0.0",
-                "--mode",
-                build_mode
-            ],
-            env=env
-        )
-    else:
-        run = sp.run([sys.executable, "-m", "diamondpack"], env=env)
+    run = sp.run([sys.executable, "-m", "diamondpack"], env=env)
 
     if run.returncode != 0:
         print("Pack Failed: ", run.returncode)
@@ -64,16 +41,10 @@ def main():
 
     os.chdir(f"dist/{EXAMPLE}/")
 
-    if build_mode == "script":
-        if IS_WINDOWS:
-            script = "myScript.bat"
-        else:
-            script = "./myScript.sh"
+    if IS_WINDOWS:
+        script = "myScript.exe"
     else:
-        if IS_WINDOWS:
-            script = "myScript.exe"
-        else:
-            script = "./myScript"
+        script = "./myScript"
 
     print("Executing Test Script")
 
