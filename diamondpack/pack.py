@@ -3,7 +3,7 @@ import sys
 import os
 import shutil
 import subprocess as sp
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 import glob
 import re
 import sysconfig
@@ -29,6 +29,15 @@ def _do_replace(template: str, outfile: str, replacements: Dict[str, str]) -> No
         for line in inF:
             line = _REPLACE_RE.sub(lambda x: replacements[x.group(0)], line)
             outF.write(line)
+
+
+def execute(args: List[str], env=None) -> int:
+    run = sp.Popen(args, env, stdout=sp.PIPE, stderr=sp.STDOUT, universal_newlines=True)  # type: ignore
+    if run.stdout is not None:
+        for line in iter(run.stdout.readline, ''):
+            print("   ", line, end='')
+
+    return run.wait()
 
 
 class DiamondPacker:
@@ -67,7 +76,7 @@ class DiamondPacker:
         if os.path.exists(self._venvDir):
             shutil.rmtree(self._venvDir)
 
-        sp.run([python_exec, '-m', 'venv', self._venvDir, '--copies'])
+        execute([python_exec, '-m', 'venv', self._venvDir, '--copies'])
 
         venvExec = os.path.join(self.venvBin, "python")
 
@@ -81,7 +90,9 @@ class DiamondPacker:
             "--force-reinstall",
         ]
         args.extend(self._config.wheels)
-        sp.run(args)
+        ret = execute(args)
+        if ret != 0:
+            raise RuntimeError(f"Unable to install wheel: Return code ({ret})")
 
         venvCfgFile = os.path.join(self._venvDir, "pyvenv.cfg")
         os.remove(venvCfgFile)
@@ -235,13 +246,13 @@ class DiamondPacker:
 
         log(f"Building executable - {script.name}")
 
-        run = sp.run(configureParams)
-        if run.returncode != 0:
-            raise RuntimeError("Unable to configure cmake")
+        ret = execute(configureParams)
+        if ret != 0:
+            raise RuntimeError(f"Unable to configure cmake: Return code ({ret})")
 
-        run = sp.run(buildParams)
-        if run.returncode != 0:
-            raise RuntimeError("Unable to compile application")
+        ret = execute(buildParams)
+        if ret != 0:
+            raise RuntimeError(f"Unable to compile application: Return code ({ret})")
 
         log(f"Copying executable - {script.name}")
 
