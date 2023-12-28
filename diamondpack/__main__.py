@@ -8,11 +8,11 @@ import glob
 if sys.version_info.major == 3 and sys.version_info.minor < 11:
     import tomli  # type: ignore
 else:
-    import tomllib as tomli # type: ignore
+    import tomllib as tomli  # type: ignore
 
-from diamondpack.dpconfig import DPConfig, DPMode, DPScript
+from diamondpack.config import PackConfig, DPMode, App
 from diamondpack.pack import DiamondPacker
-from diamondpack.dplog import logErr, log
+from diamondpack.log import logErr, log
 
 VERSION = "1.4.1"
 
@@ -21,11 +21,14 @@ PROJECT_FILE = "pyproject.toml"
 SCRIPT_RE = re.compile(r'((?P<name>[^=]+)=)?(?P<path>[^:]+)(:(?P<entry>.+))?')
 
 
-def parse_project() -> Optional[DPConfig]:
+def parse_project() -> Optional[PackConfig]:
+    """
+    Load the pyproject.toml file
+    """
     with open(PROJECT_FILE, mode='rb') as f:
         root = tomli.load(f)
 
-    config = DPConfig()
+    config = PackConfig()
 
     try:
         project = root['project']
@@ -91,7 +94,7 @@ def parse_project() -> Optional[DPConfig]:
             continue
         path = m.group('path')
         entry = m.group('entry')
-        config.scripts.append(DPScript(name, path, entry))
+        config.scripts.append(App(name, path, entry))
 
     if error:
         return None

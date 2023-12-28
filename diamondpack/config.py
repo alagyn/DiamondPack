@@ -7,11 +7,11 @@ class DPMode(enum.IntEnum):
     SCRIPT = enum.auto()
 
 
-class DPScript:
+class App:
 
     def __init__(self, name: str, path: str, entry: Optional[str]) -> None:
         """
-        Configs for a single diamondpack executable script
+        Configs for a single diamondpack executable app
 
         :param name: The output name of the app
         :param path: The module path to the python script
@@ -24,7 +24,7 @@ class DPScript:
         self.entry = entry
 
 
-class DPConfig:
+class PackConfig:
     """
     Wrapper for diamondpack configuration
     """
@@ -33,7 +33,7 @@ class DPConfig:
         # packages to install
         self.wheels: List[str] = []
         # (name, module, entry point or None)
-        self.scripts: List[DPScript] = []
+        self.scripts: List[App] = []
         # Overall package name
         self.name = ""
         # Packaging mode

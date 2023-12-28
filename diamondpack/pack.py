@@ -8,8 +8,8 @@ import glob
 import re
 import sysconfig
 
-from diamondpack.dpconfig import DPScript, DPConfig, DPMode
-from diamondpack.dplog import log
+from diamondpack.config import App, PackConfig, DPMode
+from diamondpack.log import log
 
 _IS_WINDOWS = sys.platform == 'win32'
 
@@ -25,6 +25,12 @@ _PY_VERSION = f'python{sys.version_info.major}.{sys.version_info.minor}'
 
 
 def _do_replace(template: str, outfile: str, replacements: Dict[str, str]) -> None:
+    """
+    Copy the contents of the template to the output path replacing values according to the map
+    :param template: The template file path
+    :param outfile: The output file path
+    :param replacements: Dict of replacement values like @@KEY@@: "value"
+    """
     with open(outfile, mode='w') as outF, open(os.path.join(_TEMPLATE_DIR, template), mode='r') as inF:
         for line in inF:
             line = _REPLACE_RE.sub(lambda x: replacements[x.group(0)], line)
@@ -45,7 +51,7 @@ def execute(args: List[str], env=None) -> int:
 
 class DiamondPacker:
 
-    def __init__(self, config: DPConfig) -> None:
+    def __init__(self, config: PackConfig) -> None:
         self._config = config
         self._buildDir = config.build_dir
         self._outputDir = os.path.join("dist", config.name)
@@ -56,6 +62,9 @@ class DiamondPacker:
             self.venvBin = os.path.join(self._venvDir, "bin")
 
     def pack(self):
+        """
+        Main entry point for packing
+        """
         log(f"Building Virtual Environment")
         self._build_env()
 
@@ -187,24 +196,39 @@ class DiamondPacker:
 
         log("Success - Virtual Environment")
 
-    def _get_cmd(self, script: DPScript) -> str:
-        if script.entry is not None:
-            return f'-c "from {script.path} import {script.entry}; exit({script.entry}())"'
+    def _get_cmd(self, app: App) -> str:
+        """
+        Returns the appropriate python cmd arguments depending on the app's entry point
+        :param app: The app
+        :return: The command string
+        """
+        if app.entry is not None:
+            # If the app has an entry point defined, run python in "command" mode
+            # import the func from the specified module, and execute it
+            return f'-c "from {app.path} import {app.entry}; exit({app.entry}())"'
         else:
-            return f'-m {script.path}'
+            # else just run the script as a module
+            return f'-m {app.path}'
 
-    def _make_script(self, script: DPScript):
+    def _make_script(self, app: App):
+        """
+        Generate a .sh or .bat script for the given app
+        :param app: The app
+        :return: None
+        """
+        cmd = self._get_cmd(app)
 
-        cmd = self._get_cmd(script)
-
+        # Select script extension
         if _IS_WINDOWS:
             extension = ".bat"
         else:
             extension = ".sh"
 
+        # generate filenames
         template = "app" + extension
-        outfile = os.path.join(self._outputDir, script.name + extension)
+        outfile = os.path.join(self._outputDir, app.name + extension)
 
+        # generate replacements
         replace = {
             _CMD_REPLACE: cmd,
             _PY_REPLACE: _PY_VERSION
@@ -212,17 +236,24 @@ class DiamondPacker:
 
         _do_replace(template, outfile, replace)
 
+        # chmod
         if not _IS_WINDOWS:
             os.chmod(outfile, 0o755)
 
-        log(f'Success - {script.name}')
+        log(f'Success - {app.name}')
 
-    def _make_exec(self, script: DPScript):
+    def _make_exec(self, app: App):
+        """
+        Generate an executable for the given app
+        :param app: The app
+        :return: None
+        """
 
-        cmd = self._get_cmd(script)
+        cmd = self._get_cmd(app)
         # Escape quotes
         cmd = re.sub(r'"', '\\"', cmd)
 
+        # setup cmake dirs
         cmakeBuild = os.path.join(self._buildDir, "dp-cmake-build")
         cmakeSrc = os.path.join(self._buildDir, "dp-app-src-dir")
         os.makedirs(cmakeSrc, exist_ok=True)
@@ -237,9 +268,10 @@ class DiamondPacker:
 
         _do_replace(template, outfile, replace)
 
+        # Copy the build config
         shutil.copy(os.path.join(_TEMPLATE_DIR, "CMakeLists.txt"), cmakeSrc)
 
-        configureParams = ["cmake", "-S", cmakeSrc, "-B", cmakeBuild, f"-DEXEC_NAME={script.name}"]
+        configureParams = ["cmake", "-S", cmakeSrc, "-B", cmakeBuild, f"-DEXEC_NAME={app.name}"]
 
         buildParams = ["cmake", "--build", cmakeBuild]
 
@@ -248,7 +280,7 @@ class DiamondPacker:
         else:
             configureParams.append("-DCMAKE_BUILD_TYPE=Release")
 
-        log(f"Building executable - {script.name}")
+        log(f"Building executable - {app.name}")
 
         log("Configuring CMake")
         ret = execute(configureParams)
@@ -260,13 +292,13 @@ class DiamondPacker:
         if ret != 0:
             raise RuntimeError(f"Unable to compile application: Return code ({ret})")
 
-        log(f"Copying executable - {script.name}")
+        log(f"Copying executable - {app.name}")
 
         if _IS_WINDOWS:
-            execName = f'{script.name}.exe'
+            execName = f'{app.name}.exe'
             execPath = os.path.join(cmakeBuild, "Release", execName)
         else:
-            execName = script.name
+            execName = app.name
             execPath = os.path.join(cmakeBuild, execName)
 
         if not os.path.isfile(execPath):
@@ -274,4 +306,4 @@ class DiamondPacker:
 
         shutil.copy(execPath, os.path.join(self._outputDir, execName))
 
-        log(f'Success - {script.name}')
+        log(f'Success - {app.name}')
