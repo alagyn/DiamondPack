@@ -142,7 +142,5 @@ int main(int argc, char** argv)
 
     // Exec the app
     LOG("Executing: " << program << std::endl);
-    std::system(ss.str().c_str());
-
-    return 0;
+    return std::system(ss.str().c_str());
 }
