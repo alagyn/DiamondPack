@@ -25,6 +25,7 @@ dependencies = [
     "setuptools",
     "wheel",
     "tomli ; python_version < '3.11'",
+    "colorama",
 ]
 
 [project.optional-dependencies]

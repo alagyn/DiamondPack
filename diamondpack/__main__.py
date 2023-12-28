@@ -8,7 +8,7 @@ import glob
 if sys.version_info.major == 3 and sys.version_info.minor < 11:
     import tomli  # type: ignore
 else:
-    import tomllib as tomli
+    import tomllib as tomli # type: ignore
 
 from diamondpack.dpconfig import DPConfig, DPMode, DPScript
 from diamondpack.pack import DiamondPacker
