@@ -34,6 +34,8 @@ myScript = "examplePackage.myScript:main"
 
 [tool.diamondpack]
 mode = "app"
+# Prevents specific stdlib packages from being copied to reduce package size
+stdlib-blacklist = ["email", "turtle", "unittest"]
 ```
 Mode can be `app` or `script`:
 - `app` will generate a compiled executable (requires CMake and a compiler installed)
