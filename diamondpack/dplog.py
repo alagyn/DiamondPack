@@ -15,9 +15,10 @@ def logErr(msg) -> None:
     sys.stdout.flush()
 
 
-def log(msg) -> None:
+def log(*msg: str) -> None:
+    txt = " ".join(msg)
     if IS_TERMINAL:
-        print(f'{GRN}{DIAM} {msg}{OFF}')
+        print(f'{GRN}{DIAM} {txt}{OFF}')
     else:
-        print(f'{DIAM} {msg}')
+        print(f'{DIAM} {txt}')
     sys.stdout.flush()

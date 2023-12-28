@@ -32,10 +32,13 @@ def _do_replace(template: str, outfile: str, replacements: Dict[str, str]) -> No
 
 
 def execute(args: List[str], env=None) -> int:
+    print("  \u250C")
     run = sp.Popen(args, env, stdout=sp.PIPE, stderr=sp.STDOUT, universal_newlines=True)  # type: ignore
     if run.stdout is not None:
         for line in iter(run.stdout.readline, ''):
-            print("   ", line, end='')
+            print("  \u2502", line, end='')
+    print("  \u2514")
+    sys.stdout.flush()
 
     return run.wait()
 
@@ -76,11 +79,11 @@ class DiamondPacker:
         if os.path.exists(self._venvDir):
             shutil.rmtree(self._venvDir)
 
+        log("Calling venv")
         execute([python_exec, '-m', 'venv', self._venvDir, '--copies'])
 
         venvExec = os.path.join(self.venvBin, "python")
 
-        log("Installing wheels")
         args = [
             venvExec,
             "-m",
@@ -90,6 +93,7 @@ class DiamondPacker:
             "--force-reinstall",
         ]
         args.extend(self._config.wheels)
+        log("Installing wheels")
         ret = execute(args)
         if ret != 0:
             raise RuntimeError(f"Unable to install wheel: Return code ({ret})")
@@ -246,10 +250,12 @@ class DiamondPacker:
 
         log(f"Building executable - {script.name}")
 
+        log("Configuring CMake")
         ret = execute(configureParams)
         if ret != 0:
             raise RuntimeError(f"Unable to configure cmake: Return code ({ret})")
 
+        log("Building app")
         ret = execute(buildParams)
         if ret != 0:
             raise RuntimeError(f"Unable to compile application: Return code ({ret})")
