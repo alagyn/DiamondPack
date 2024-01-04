@@ -42,3 +42,5 @@ class PackConfig:
         self.build_dir = "build"
         # blacklisted stdlibs to not copy
         self.stdlib_copy_block: List[str] = []
+        # whether we should copy tk stuff
+        self.include_tk = False

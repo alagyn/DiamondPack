@@ -14,7 +14,7 @@ from diamondpack.config import PackConfig, DPMode, App
 from diamondpack.pack import DiamondPacker
 from diamondpack.log import logErr, log
 
-VERSION = "1.4.1"
+VERSION = "1.4.2"
 
 PROJECT_FILE = "pyproject.toml"
 
@@ -69,6 +69,11 @@ def parse_project() -> Optional[PackConfig]:
 
     try:
         config.stdlib_copy_block = root['tool']['diamondpack']['stdlib-blacklist']
+    except KeyError:
+        pass
+
+    try:
+        config.include_tk = root['tool']['diamondpack']['include-tk']
     except KeyError:
         pass
 

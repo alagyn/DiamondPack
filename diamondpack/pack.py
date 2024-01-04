@@ -124,6 +124,16 @@ class DiamondPacker:
             for file in glob.glob(os.path.join(libpath, "*.dll")):
                 fname = os.path.split(file)[1]
                 shutil.copyfile(file, os.path.join(self.venvBin, fname))
+            otherDLLs = os.path.join(libpath, 'DLLs')
+            for file in glob.glob(os.path.join(otherDLLs, "*.dll")):
+                fname = os.path.split(file)[1]
+                shutil.copyfile(file, os.path.join(self.venvBin, fname))
+            for file in glob.glob(os.path.join(otherDLLs, "*.pyd")):
+                fname = os.path.split(file)[1]
+                shutil.copyfile(file, os.path.join(self.venvBin, fname))
+            if self._config.include_tk:
+                shutil.copytree(os.path.join(libpath, "tcl", "tcl8.6"), os.path.join(self._venvDir, "Lib", "tcl8.6"))
+                shutil.copytree(os.path.join(libpath, "tcl", "tk8.6"), os.path.join(self._venvDir, "Lib", "tk8.6"))
         else:
             out = sp.run(["ldd", python_exec], capture_output=True)
             libStr = out.stdout.decode()
