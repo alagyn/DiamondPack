@@ -40,6 +40,8 @@ class PackConfig:
         self.mode: DPMode = DPMode.APP
         # Build directory
         self.build_dir = "build"
+        # blacklisted modules to not remove .py files
+        self.cache_block: List[str] = []
         # blacklisted stdlibs to not copy
         self.stdlib_copy_block: List[str] = []
         # whether we should copy tk stuff

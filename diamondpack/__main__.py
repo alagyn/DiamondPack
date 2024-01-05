@@ -14,7 +14,7 @@ from diamondpack.config import PackConfig, DPMode, App
 from diamondpack.pack import DiamondPacker
 from diamondpack.log import logErr, log
 
-VERSION = "1.4.3"
+VERSION = "1.4.4"
 
 PROJECT_FILE = "pyproject.toml"
 
@@ -55,7 +55,12 @@ def parse_project() -> Optional[PackConfig]:
         return None
 
     try:
-        mode = root['tool']['diamondpack']['mode']
+        dpConfigs = root['tool']['diamondpack']
+    except KeyError:
+        dpConfigs = {}
+
+    try:
+        mode = dpConfigs['mode']
         if mode == 'app':
             config.mode = DPMode.APP
         elif mode == 'script':
@@ -68,12 +73,17 @@ def parse_project() -> Optional[PackConfig]:
         config.mode = DPMode.APP
 
     try:
-        config.stdlib_copy_block = root['tool']['diamondpack']['stdlib-blacklist']
+        config.stdlib_copy_block = dpConfigs['stdlib-blacklist']
     except KeyError:
         pass
 
     try:
-        config.include_tk = root['tool']['diamondpack']['include-tk']
+        config.include_tk = dpConfigs['include-tk']
+    except KeyError:
+        pass
+
+    try:
+        config.cache_block = dpConfigs["py-cache-blacklist"]
     except KeyError:
         pass
 

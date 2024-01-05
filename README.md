@@ -35,6 +35,10 @@ myScript = "examplePackage.myScript:main"
 
 [tool.diamondpack]
 mode = "app"
+# Prevents specific installed packages from being reduced to only .pyc files
+# Some packages complaing about this. This is a list of the MODULE's name, same as it is imported as
+# NOT the pip package name
+py-cache-blacklist = ["opencv"]
 # Prevents specific stdlib packages from being copied to reduce package size
 stdlib-blacklist = ["email", "turtle", "unittest"]
 # Flag to copy required tk/tcl files

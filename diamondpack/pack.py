@@ -191,7 +191,14 @@ class DiamondPacker:
             # rename the cached file
             shutil.move(cacheFile, os.path.join(folder, fname + ".pyc"))
 
+        if len(self._config.cache_block) > 0:
+            BL_RE = re.compile("|".join(self._config.cache_block))
+        else:
+            BL_RE = None
+
         for xxx in glob.glob(os.path.join(packageDir, "*/**.py"), recursive=True):
+            if BL_RE is not None and BL_RE.search(xxx) is not None:
+                continue
             keepCache(xxx)
 
         stdlibCacheBlacklist = ["encodings"]
