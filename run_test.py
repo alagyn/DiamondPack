@@ -42,9 +42,21 @@ def main():
     os.chdir(f"dist/{EXAMPLE}/")
 
     if IS_WINDOWS:
-        script = "myScript.exe"
+        if os.path.isfile("myScript.exe"):
+            script = "myScript.exe"
+        elif os.path.isfile("myScript.bat"):
+            script = "myScript.bat"
+        else:
+            print("Cannot find executable")
+            return
     else:
-        script = "./myScript"
+        if os.path.isfile("myScript"):
+            script = "./myScript"
+        elif os.path.isfile("myScript.sh"):
+            script = "./myScript.sh"
+        else:
+            print("Cannot find executable")
+            return
 
     print("Executing Test Script")
 

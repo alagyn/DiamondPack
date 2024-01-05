@@ -14,7 +14,7 @@ from diamondpack.config import PackConfig, DPMode, App
 from diamondpack.pack import DiamondPacker
 from diamondpack.log import logErr, log
 
-VERSION = "1.4.2"
+VERSION = "1.4.3"
 
 PROJECT_FILE = "pyproject.toml"
 
@@ -80,7 +80,7 @@ def parse_project() -> Optional[PackConfig]:
     config.name = f'{name}-{version}'
 
     if not os.path.isdir("dist"):
-        logErr("Cannot find 'dist' directory")
+        logErr("Cannot find 'dist' directory, did you build your package to a wheel?")
         return None
 
     files = glob.glob(os.path.join('dist', f'{config.name}*.whl'))

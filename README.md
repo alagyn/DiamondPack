@@ -27,6 +27,7 @@ or
 ## Usage:
 
 ### 1. Configure DiamondPack via your `pyproject.toml`
+
 ```toml
 [project.scripts]
 # Each script named here will generate a new executable
@@ -36,7 +37,10 @@ myScript = "examplePackage.myScript:main"
 mode = "app"
 # Prevents specific stdlib packages from being copied to reduce package size
 stdlib-blacklist = ["email", "turtle", "unittest"]
+# Flag to copy required tk/tcl files
+include-tk = false
 ```
+
 Mode can be `app` or `script`:
 - `app` will generate a compiled executable (requires CMake and a compiler installed)
 - `script` will generate a bash (Linux) or batch (Windows) script
