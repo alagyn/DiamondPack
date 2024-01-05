@@ -126,13 +126,13 @@ int main(int argc, char** argv)
 
     // Set up exec string
     ss = std::stringstream();
-    ss << installDir
+    ss << "\"" << installDir
 #ifdef _MSC_VER
        << "/venv/Scripts/python.exe"
 #else
        << "/venv/bin/python"
 #endif
-          " @@COMMAND@@ ";
+          "\" @@COMMAND@@ ";
 
     // Add all remaining cmd line args
     for(int i = 1; i < argc; ++i)
