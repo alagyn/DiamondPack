@@ -126,13 +126,28 @@ int main(int argc, char** argv)
 
     // Set up exec string
     ss = std::stringstream();
-    ss << "\"" << installDir
+    ss << "\""
 #ifdef _MSC_VER
-       << "/venv/Scripts/python.exe"
+       /*
+           Windows is wack, so we have to double quote this otherwise it gets
+          stripped
+       */
+       << "\""
+#endif
+       << installDir
+
+#ifdef _MSC_VER
+       << "\\venv\\Scripts\\python.exe"
 #else
        << "/venv/bin/python"
 #endif
-          "\" @@COMMAND@@ ";
+          "\" @@COMMAND@@ "
+
+#ifdef _MSC_VER
+          //Close for the double quote
+          "\""
+#endif
+        ;
 
     // Add all remaining cmd line args
     for(int i = 1; i < argc; ++i)
@@ -141,6 +156,7 @@ int main(int argc, char** argv)
     }
 
     // Exec the app
-    LOG("Executing: " << program << std::endl);
+    // TODO change windows to use CreateProcess?
+    LOG("Executing: " << ss.str() << std::endl);
     return std::system(ss.str().c_str());
 }
