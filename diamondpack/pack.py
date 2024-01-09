@@ -49,6 +49,22 @@ def execute(args: List[str], env=None) -> int:
     return run.wait()
 
 
+LIB_RE = re.compile(r'[a-zA-Z._0-9\-+]+ => (?P<filename>[a-zA-Z._0-9\-/\\]+) \(0x[0-9a-f]+\)')
+
+
+def _copy_linux_required_libs(target: str, outDir: str):
+    out = sp.run(["ldd", target], capture_output=True)
+    libStr = out.stdout.decode()
+    libList = [x.strip() for x in libStr.split("\n")]
+    for x in libList:
+        m = LIB_RE.fullmatch(x)
+        if m is None:
+            continue
+        file = m.group('filename')
+        libName = os.path.split(file)[1]
+        shutil.copyfile(file, os.path.join(outDir, libName))
+
+
 class DiamondPacker:
 
     def __init__(self, config: PackConfig) -> None:
@@ -135,18 +151,17 @@ class DiamondPacker:
                 shutil.copytree(os.path.join(libpath, "tcl", "tcl8.6"), os.path.join(self._venvDir, "Lib", "tcl8.6"))
                 shutil.copytree(os.path.join(libpath, "tcl", "tk8.6"), os.path.join(self._venvDir, "Lib", "tk8.6"))
         else:
-            out = sp.run(["ldd", python_exec], capture_output=True)
-            libStr = out.stdout.decode()
-            libList = [x.strip() for x in libStr.split("\n")]
-            LIB_RE = re.compile(r'[a-zA-Z._0-9\-]+ => (?P<filename>[a-zA-Z._0-9\-/\\]+) \(0x[0-9a-f]+\)')
+            _copy_linux_required_libs(python_exec, self.venvBin)
 
-            for x in libList:
-                m = LIB_RE.fullmatch(x)
-                if m is None:
-                    continue
-                file = m.group('filename')
-                libName = os.path.split(file)[1]
-                shutil.copyfile(file, os.path.join(self.venvBin, libName))
+            if self._config.include_tk:
+                _copy_linux_required_libs("/usr/lib/libtk8.6.so", self.venvBin)
+
+            if self._config.include_tk:
+                shutil.copy("/usr/lib/libtk8.6.so", os.path.join(self.venvBin, "libtk8.6.so"))
+                shutil.copytree("/usr/lib/tk8.6", os.path.join(self._venvDir, 'lib', "tk8.6"))
+
+                shutil.copy("/usr/lib/libtcl8.6.so", os.path.join(self.venvBin, "libtcl8.6.so"))
+                shutil.copytree("/usr/lib/tcl8.6", os.path.join(self._venvDir, 'lib', "tcl8.6"))
 
         log("Copying python executable")
         # Copy the python executable
@@ -322,5 +337,8 @@ class DiamondPacker:
             raise RuntimeError(f"Cannot find built executable: {execPath}")
 
         shutil.copy(execPath, os.path.join(self._outputDir, execName))
+
+        if not _IS_WINDOWS:
+            _copy_linux_required_libs(execPath, self._outputDir)
 
         log(f'Success - {app.name}')

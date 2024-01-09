@@ -12,10 +12,12 @@ license = { text = "MIT License" }
 
 [project.scripts]
 myScript = "examplePackage.myScript:main"
+gui = "examplePackage.myGUI:main"
 
 [tool.setuptools]
 packages = ["examplePackage"]
 
 [tool.diamondpack]
 mode = "app"
+include-tk = true
 stdlib-blacklist = ["email", "turtle", "unittest"]
