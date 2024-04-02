@@ -355,6 +355,8 @@ class DiamondPacker:
             if not os.path.exists(outDir):
                 os.makedirs(outDir, exist_ok=True)
             for f in glob.iglob(globPath):
+                if not os.path.isfile(f):
+                    continue
                 print(f"  \u2502 {f} -> {outDir}\\{os.path.basename(f)}")
                 shutil.copy(f, outDir)
         print("  \u2514")
