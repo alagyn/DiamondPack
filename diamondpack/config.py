@@ -46,3 +46,5 @@ class PackConfig:
         self.stdlib_copy_block: List[str] = []
         # whether we should copy tk stuff
         self.include_tk = False
+        # list of file globs and dest dir to copy into the package
+        self.data_globs: List[Tuple[str, str]] = []

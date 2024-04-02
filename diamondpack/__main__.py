@@ -20,13 +20,31 @@ PROJECT_FILE = "pyproject.toml"
 
 SCRIPT_RE = re.compile(r'((?P<name>[^=]+)=)?(?P<path>[^:]+)(:(?P<entry>.+))?')
 
+class ConfigKeys:
+    MODE = "mode"
+    PYCACHE_BL = "py-cache-blacklist"
+    STDLIB_BL = "stdlib-blacklist"
+    INC_TK = "include-tk"
+    DATA_GLOBS = "data-globs"
+
+    VALID_KEYS = [
+        MODE,
+        PYCACHE_BL,
+        STDLIB_BL,
+        INC_TK,
+        DATA_GLOBS
+    ]
 
 def parse_project() -> Optional[PackConfig]:
     """
     Load the pyproject.toml file
     """
-    with open(PROJECT_FILE, mode='rb') as f:
-        root = tomli.load(f)
+    try:
+        with open(PROJECT_FILE, mode='rb') as f:
+            root = tomli.load(f)
+    except FileNotFoundError:
+        logErr("Cannot find pyproject.toml")
+        return None
 
     config = PackConfig()
 
@@ -37,7 +55,7 @@ def parse_project() -> Optional[PackConfig]:
         return None
 
     try:
-        name = project['name']
+        projectName = str(project['name'])
     except KeyError:
         logErr("'project.name' missing from pyproject.toml")
         return None
@@ -59,8 +77,17 @@ def parse_project() -> Optional[PackConfig]:
     except KeyError:
         dpConfigs = {}
 
+    badConfig = False
+    for key in dpConfigs.keys():
+        if key not in ConfigKeys.VALID_KEYS:
+            badConfig = True
+            logErr(f'Invalid project config tool.diamondpack.{key}')
+
+    if badConfig:
+        return None
+
     try:
-        mode = dpConfigs['mode']
+        mode = dpConfigs[ConfigKeys.MODE]
         if mode == 'app':
             config.mode = DPMode.APP
         elif mode == 'script':
@@ -73,29 +100,36 @@ def parse_project() -> Optional[PackConfig]:
         config.mode = DPMode.APP
 
     try:
-        config.stdlib_copy_block = dpConfigs['stdlib-blacklist']
+        config.stdlib_copy_block = dpConfigs[ConfigKeys.STDLIB_BL]
     except KeyError:
         pass
 
     try:
-        config.include_tk = dpConfigs['include-tk']
+        config.include_tk = dpConfigs[ConfigKeys.INC_TK]
     except KeyError:
         pass
 
     try:
-        config.cache_block = dpConfigs["py-cache-blacklist"]
+        config.cache_block = dpConfigs[ConfigKeys.PYCACHE_BL]
     except KeyError:
         pass
 
-    config.name = f'{name}-{version}'
+    try:
+        config.data_globs = dpConfigs[ConfigKeys.DATA_GLOBS]
+    except KeyError:
+        pass
+
+    config.name = f'{projectName}-{version}'
 
     if not os.path.isdir("dist"):
         logErr("Cannot find 'dist' directory, did you build your package to a wheel?")
         return None
 
-    files = glob.glob(os.path.join('dist', f'{config.name}*.whl'))
+    wheelGlob = os.path.join('dist', f'{projectName.replace("-", "_")}-{version}*.whl')
+
+    files = glob.glob(wheelGlob)
     if len(files) != 1:
-        logErr(f"Error finding exact wheel, potentials: {files}")
+        logErr(f"Error finding exact wheel (glob='{wheelGlob}'), potentials: {files}")
         return None
 
     config.wheels = [files[0]]

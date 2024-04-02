@@ -3,7 +3,7 @@ import sys
 import os
 import shutil
 import subprocess as sp
-from typing import Optional, List, Dict, Any
+from typing import List, Dict
 import glob
 import re
 import sysconfig
@@ -90,6 +90,8 @@ class DiamondPacker:
                 self._make_exec(script)
             else:
                 self._make_script(script)
+
+        self._copy_data()
 
     def _build_env(self):
         """
@@ -342,3 +344,18 @@ class DiamondPacker:
             _copy_linux_required_libs(execPath, self._outputDir)
 
         log(f'Success - {app.name}')
+
+    def _copy_data(self):
+        if len(self._config.data_globs) == 0:
+            return
+        log("Copying Data")
+        print("  \u250C")
+        for globPath, dest in self._config.data_globs:
+            outDir = os.path.join(self._outputDir, dest)
+            if not os.path.exists(outDir):
+                os.makedirs(outDir, exist_ok=True)
+            for f in glob.iglob(globPath):
+                print(f"  \u2502 {f} -> {outDir}\\{os.path.basename(f)}")
+                shutil.copy(f, outDir)
+        print("  \u2514")
+        log("Copying Data - Done")

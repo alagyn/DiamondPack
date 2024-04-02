@@ -35,14 +35,25 @@ myScript = "examplePackage.myScript:main"
 
 [tool.diamondpack]
 mode = "app"
+
 # Prevents specific installed packages from being reduced to only .pyc files
 # Some packages complaing about this. This is a list of the MODULE's name, same as it is imported as
 # NOT the pip package name
 py-cache-blacklist = ["opencv"]
+
 # Prevents specific stdlib packages from being copied to reduce package size
 stdlib-blacklist = ["email", "turtle", "unittest"]
+
 # Flag to copy required tk/tcl files
 include-tk = false
+
+# Additional data files can be copied into your distribution like this
+# File globs are copied to the specified path in the dist.
+data-globs = [
+    ["myData/img*.jpg", "destinationDir"],
+    ["myData/data.dat", "data"]
+]
+
 ```
 
 Mode can be `app` or `script`:

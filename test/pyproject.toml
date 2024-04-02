@@ -21,3 +21,4 @@ packages = ["examplePackage"]
 mode = "app"
 include-tk = true
 stdlib-blacklist = ["email", "turtle", "unittest"]
+data-globs = [["exampleData/data*.txt", "data"]]
