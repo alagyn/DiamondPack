@@ -20,20 +20,17 @@ PROJECT_FILE = "pyproject.toml"
 
 SCRIPT_RE = re.compile(r'((?P<name>[^=]+)=)?(?P<path>[^:]+)(:(?P<entry>.+))?')
 
+
 class ConfigKeys:
     MODE = "mode"
     PYCACHE_BL = "py-cache-blacklist"
     STDLIB_BL = "stdlib-blacklist"
     INC_TK = "include-tk"
     DATA_GLOBS = "data-globs"
+    DEBUG_LOGS = "debug-logs"
 
-    VALID_KEYS = [
-        MODE,
-        PYCACHE_BL,
-        STDLIB_BL,
-        INC_TK,
-        DATA_GLOBS
-    ]
+    VALID_KEYS = [MODE, PYCACHE_BL, STDLIB_BL, INC_TK, DATA_GLOBS, DEBUG_LOGS]
+
 
 def parse_project() -> Optional[PackConfig]:
     """
@@ -116,6 +113,11 @@ def parse_project() -> Optional[PackConfig]:
 
     try:
         config.data_globs = dpConfigs[ConfigKeys.DATA_GLOBS]
+    except KeyError:
+        pass
+
+    try:
+        config.debug_logs = dpConfigs[ConfigKeys.DEBUG_LOGS]
     except KeyError:
         pass
 

@@ -19,7 +19,6 @@ Template app
 #include <string>
 #include <vector>
 
-#define DIAMOND_LOGGING
 #ifdef DIAMOND_LOGGING
     #define LOG(x) std::cout << "<> " << x
 #else

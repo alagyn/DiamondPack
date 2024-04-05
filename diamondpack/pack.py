@@ -314,6 +314,9 @@ class DiamondPacker:
         else:
             configureParams.append("-DCMAKE_BUILD_TYPE=Release")
 
+        if self._config.debug_logs:
+            configureParams.append("-DDEBUG_LOGS=ON")
+
         log(f"Building executable - {app.name}")
 
         log("Configuring CMake")
