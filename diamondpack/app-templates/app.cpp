@@ -7,10 +7,16 @@ Template app
     #include <Windows.h>
     #include <strsafe.h>
     #include <winbase.h>
+
+    // Use backslashes
+    #define SEP "\\"
 #else
     #include <cstring>
     #include <errno.h>
     #include <stdlib.h>
+
+    // Use forward slashes
+    #define SEP "/"
 #endif
 
 #include <filesystem>
@@ -95,7 +101,7 @@ int main(int argc, char** argv)
 
     // Set up the PYTHONHOME var
     std::stringstream ss;
-    ss << installDir << "/venv/stdlib";
+    ss << installDir << SEP "venv" SEP "stdlib";
     if(!write_env("PYTHONHOME", ss.str()))
     {
         return -1;
@@ -104,11 +110,11 @@ int main(int argc, char** argv)
     // Set up the PYTHONPATH var
     ss = std::stringstream();
     ss << installDir
-       << "/venv/lib/"
+       << SEP "venv" SEP "lib" SEP
 #ifndef _MSC_VER
-          "@@PYTHON@@/"
+              "@@PYTHON@@" SEP
 #endif
-          "site-packages";
+              "site-packages";
 
     if(!write_env("PYTHONPATH", ss.str()))
     {
@@ -137,15 +143,15 @@ int main(int argc, char** argv)
        << installDir
 
 #ifdef _MSC_VER
-       << "\\venv\\Scripts\\python.exe"
+       << SEP "venv" SEP "Scripts" SEP "python.exe"
 #else
        << "/venv/bin/python"
 #endif
-          "\" @@COMMAND@@ "
+              "\" @@COMMAND@@ "
 
 #ifdef _MSC_VER
-          //Close for the double quote
-          "\""
+              //Close for the double quote
+              "\""
 #endif
         ;
 
