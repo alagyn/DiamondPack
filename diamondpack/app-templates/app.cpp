@@ -19,8 +19,9 @@ Template app
 #include <string>
 #include <vector>
 
+#define DIAMOND_LOGGING
 #ifdef DIAMOND_LOGGING
-    #define LOG(x) std::cout << x
+    #define LOG(x) std::cout << "\u25C6 " << x
 #else
     #define LOG(x)
 #endif
@@ -158,5 +159,7 @@ int main(int argc, char** argv)
     // Exec the app
     // TODO change windows to use CreateProcess?
     LOG("Executing: " << ss.str() << std::endl);
-    return std::system(ss.str().c_str());
+    int out = std::system(ss.str().c_str());
+    LOG("Return Code: " << out << std::endl);
+    return out;
 }

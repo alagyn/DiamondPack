@@ -49,7 +49,7 @@ def execute(args: List[str], env=None) -> int:
     return run.wait()
 
 
-LIB_RE = re.compile(r'[a-zA-Z._0-9\-+]+ => (?P<filename>[a-zA-Z._0-9\-/\\]+) \(0x[0-9a-f]+\)')
+LIB_RE = re.compile(r'[a-zA-Z._0-9/\-+]+ => (?P<filename>[a-zA-Z._0-9\-/\\]+) \(0x[0-9a-f]+\)')
 
 
 def _copy_linux_required_libs(target: str, outDir: str):
@@ -341,7 +341,8 @@ class DiamondPacker:
         shutil.copy(execPath, os.path.join(self._outputDir, execName))
 
         if not _IS_WINDOWS:
-            _copy_linux_required_libs(execPath, self._outputDir)
+            #_copy_linux_required_libs(execPath, self._outputDir)
+            pass
 
         log(f'Success - {app.name}')
 

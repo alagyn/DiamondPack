@@ -11,3 +11,5 @@ set(CMAKE_CXX_STANDARD 17)
 add_executable(${EXEC_NAME}
     app.cpp
 )
+
+target_link_libraries(${EXEC_NAME} -static)
