@@ -14,7 +14,7 @@ from diamondpack.config import PackConfig, DPMode, App
 from diamondpack.pack import DiamondPacker
 from diamondpack.log import logErr, log
 
-VERSION = "1.4.4"
+VERSION = "1.4.5"
 
 PROJECT_FILE = "pyproject.toml"
 

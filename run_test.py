@@ -11,6 +11,33 @@ HOME = os.path.split(__file__)[0]
 IS_WINDOWS = sys.platform == 'win32'
 
 
+def testExec(file, *args) -> bool:
+    if IS_WINDOWS:
+        exePath = f'{file}.exe'
+        batPath = f'{file}.bat'
+        if os.path.isfile(exePath):
+            script = exePath
+        elif os.path.isfile(batPath):
+            script = batPath
+        else:
+            print("Cannot find executable")
+            return False
+    else:
+        exePath = file
+        shPath = f'{file}.sh'
+        if os.path.isfile(exePath):
+            script = f"./{exePath}"
+        elif os.path.isfile(shPath):
+            script = f"./{shPath}"
+        else:
+            print("Cannot find executable")
+            return False
+
+    ret = sp.call([script, *args])
+
+    return ret != 0
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument("--wheel", action="store_true", help="Force rebuilding of the test wheel")
@@ -41,26 +68,23 @@ def main():
 
     os.chdir(f"dist/{EXAMPLE}/")
 
-    if IS_WINDOWS:
-        if os.path.isfile("myScript.exe"):
-            script = "myScript.exe"
-        elif os.path.isfile("myScript.bat"):
-            script = "myScript.bat"
-        else:
-            print("Cannot find executable")
-            return
-    else:
-        if os.path.isfile("myScript"):
-            script = "./myScript"
-        elif os.path.isfile("myScript.sh"):
-            script = "./myScript.sh"
-        else:
-            print("Cannot find executable")
-            return
+    print("Executing Test Scripts")
 
-    print("Executing Test Script")
+    tests = [
+        ["myScript", "1", "4"],
+        ["gui", "--noRun"],
+    ]
 
-    sp.run([script, "1", "4"])
+    fail = False
+    for idx, val in enumerate(tests):
+        if testExec(*val):
+            print(f"Failed Test {idx}: {val}")
+            fail = True
+        else:
+            print(f"Passed Test {idx}")
+
+    if fail:
+        exit(1)
 
 
 if __name__ == "__main__":

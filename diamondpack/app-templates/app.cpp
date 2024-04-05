@@ -101,22 +101,8 @@ int main(int argc, char** argv)
 
     // Set up the PYTHONHOME var
     std::stringstream ss;
-    ss << installDir << SEP "venv" SEP "stdlib";
+    ss << installDir << SEP "venv";
     if(!write_env("PYTHONHOME", ss.str()))
-    {
-        return -1;
-    }
-
-    // Set up the PYTHONPATH var
-    ss = std::stringstream();
-    ss << installDir
-       << SEP "venv" SEP "lib" SEP
-#ifndef _MSC_VER
-              "@@PYTHON@@" SEP
-#endif
-              "site-packages";
-
-    if(!write_env("PYTHONPATH", ss.str()))
     {
         return -1;
     }

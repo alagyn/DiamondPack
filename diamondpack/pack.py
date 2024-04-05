@@ -73,9 +73,11 @@ class DiamondPacker:
         self._outputDir = os.path.join("dist", config.name)
         self._venvDir = os.path.join(self._outputDir, "venv")
         if _IS_WINDOWS:
-            self.venvBin = os.path.join(self._venvDir, "Scripts")
+            self._venvBin = os.path.join(self._venvDir, "Scripts")
+            self._venvLib = os.path.join(self._venvDir, "Lib")
         else:
-            self.venvBin = os.path.join(self._venvDir, "bin")
+            self._venvBin = os.path.join(self._venvDir, "bin")
+            self._venvLib = os.path.join(self._venvDir, "lib", _PY_VERSION)
 
     def pack(self):
         """
@@ -109,7 +111,7 @@ class DiamondPacker:
         log("Calling venv")
         execute([python_exec, '-m', 'venv', self._venvDir, '--copies'])
 
-        venvExec = os.path.join(self.venvBin, "python")
+        venvExec = os.path.join(self._venvBin, "python")
 
         args = [
             venvExec,
@@ -132,7 +134,7 @@ class DiamondPacker:
         toRemove = ["*ctivate*", "pip*", "python*"]
 
         for xxx in toRemove:
-            for f in glob.glob(os.path.join(self.venvBin, xxx)):
+            for f in glob.glob(os.path.join(self._venvBin, xxx)):
                 os.remove(f)
 
         # Copy required libraries
@@ -141,33 +143,33 @@ class DiamondPacker:
             libpath = sysconfig.get_config_var("installed_base")
             for file in glob.glob(os.path.join(libpath, "*.dll")):
                 fname = os.path.split(file)[1]
-                shutil.copyfile(file, os.path.join(self.venvBin, fname))
+                shutil.copyfile(file, os.path.join(self._venvLib, fname))
             otherDLLs = os.path.join(libpath, 'DLLs')
             for file in glob.glob(os.path.join(otherDLLs, "*.dll")):
                 fname = os.path.split(file)[1]
-                shutil.copyfile(file, os.path.join(self.venvBin, fname))
+                shutil.copyfile(file, os.path.join(self._venvLib, fname))
             for file in glob.glob(os.path.join(otherDLLs, "*.pyd")):
                 fname = os.path.split(file)[1]
-                shutil.copyfile(file, os.path.join(self.venvBin, fname))
+                shutil.copyfile(file, os.path.join(self._venvLib, fname))
             if self._config.include_tk:
                 shutil.copytree(os.path.join(libpath, "tcl", "tcl8.6"), os.path.join(self._venvDir, "Lib", "tcl8.6"))
                 shutil.copytree(os.path.join(libpath, "tcl", "tk8.6"), os.path.join(self._venvDir, "Lib", "tk8.6"))
         else:
-            _copy_linux_required_libs(python_exec, self.venvBin)
+            _copy_linux_required_libs(python_exec, self._venvBin)
 
             if self._config.include_tk:
-                _copy_linux_required_libs("/usr/lib/libtk8.6.so", self.venvBin)
+                _copy_linux_required_libs("/usr/lib/libtk8.6.so", self._venvBin)
 
             if self._config.include_tk:
-                shutil.copy("/usr/lib/libtk8.6.so", os.path.join(self.venvBin, "libtk8.6.so"))
+                shutil.copy("/usr/lib/libtk8.6.so", os.path.join(self._venvBin, "libtk8.6.so"))
                 shutil.copytree("/usr/lib/tk8.6", os.path.join(self._venvDir, 'lib', "tk8.6"))
 
-                shutil.copy("/usr/lib/libtcl8.6.so", os.path.join(self.venvBin, "libtcl8.6.so"))
+                shutil.copy("/usr/lib/libtcl8.6.so", os.path.join(self._venvBin, "libtcl8.6.so"))
                 shutil.copytree("/usr/lib/tcl8.6", os.path.join(self._venvDir, 'lib', "tcl8.6"))
 
         log("Copying python executable")
         # Copy the python executable
-        newExec = os.path.join(self.venvBin, "python")
+        newExec = os.path.join(self._venvBin, "python")
         if _IS_WINDOWS:
             newExec += ".exe"
             python_exec = os.path.join(sysconfig.get_config_var("installed_base"), "python.exe")
@@ -179,12 +181,12 @@ class DiamondPacker:
         # Copy the stdlib
         globalStdlib = sysconfig.get_path('stdlib')
 
-        if _IS_WINDOWS:
-            privateStdLib = os.path.join(self._venvDir, "stdlib", "Lib")
-        else:
-            privateStdLib = os.path.join(self._venvDir, "stdlib", "lib", _PY_VERSION)
-
-        shutil.copytree(globalStdlib, privateStdLib, ignore=shutil.ignore_patterns(*self._config.stdlib_copy_block))
+        shutil.copytree(
+            globalStdlib,
+            self._venvLib,
+            ignore=shutil.ignore_patterns(*self._config.stdlib_copy_block),
+            dirs_exist_ok=True
+        )
 
         log("Cleaning environment")
         if _IS_WINDOWS:
@@ -221,7 +223,7 @@ class DiamondPacker:
         stdlibCacheBlacklist = ["encodings"]
         BL_RE = re.compile("|".join(stdlibCacheBlacklist))
 
-        for xxx in glob.glob(os.path.join(privateStdLib, "*/**.py"), recursive=True):
+        for xxx in glob.glob(os.path.join(self._venvLib, "*/**.py"), recursive=True):
             if BL_RE.search(xxx) is not None:
                 continue
             keepCache(xxx)
