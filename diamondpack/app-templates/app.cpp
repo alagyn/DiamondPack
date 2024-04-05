@@ -21,7 +21,7 @@ Template app
 
 #define DIAMOND_LOGGING
 #ifdef DIAMOND_LOGGING
-    #define LOG(x) std::cout << "\u25C6 " << x
+    #define LOG(x) std::cout << "<> " << x
 #else
     #define LOG(x)
 #endif
