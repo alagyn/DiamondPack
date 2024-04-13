@@ -54,6 +54,8 @@ data-globs = [
     ["myData/data.dat", "data"]
 ]
 
+# Enable some additional logging for the "app" mode
+debug-logs = true
 ```
 
 Mode can be `app` or `script`:

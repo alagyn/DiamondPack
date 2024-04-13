@@ -1,4 +1,4 @@
-This application(s) was packaged using Diamondpack. This results in portions
+This application(s) was packaged using DiamondPack. This results in portions
 of the DiamondPack source code to be included/compiled with this application.
 In particular, this includes code/terminal scripts that bootstrap and launch
 the packaged Python application. This code is subject to the below license.
