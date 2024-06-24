@@ -138,8 +138,7 @@ int main(int argc, char** argv)
     }
 #else
     ss << std::stringstream();
-    ss << get_env("PATH") << ';' << installDir
-       << "/venv/Lib"
+    ss << installDir << "/venv/Lib" << get_env("PATH") << ';';
 #endif
 
     // Set up exec string
