@@ -31,38 +31,46 @@ Template app
     #define LOG(x)
 #endif
 
+#ifdef _MSC_VER
+void showError()
+{
+    // Display the error message and exit the process
+    char* msgBuff;
+    DWORD dw = GetLastError();
+
+    FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM
+            | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        dw,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (char*)&msgBuff,
+        0,
+        NULL
+    );
+
+    const char* from = "Set ENV";
+    size_t size = lstrlenA(msgBuff) + lstrlenA(from) + 40;
+
+    char* displayBuff = new char[size];
+
+    StringCchPrintfA(displayBuff, size, "Error: %s: %s", from, msgBuff);
+
+    std::wcout << L"Error: " << from << L", " << msgBuff << std::endl;
+    MessageBoxA(NULL, (LPCSTR)displayBuff, "Error", MB_OK);
+
+    LocalFree(msgBuff);
+    exit(1);
+}
+#endif
+
 bool write_env(const char* name, const std::string& value)
 {
     LOG("Setting " << name << "=" << value << std::endl);
 #ifdef _MSC_VER
     if(!SetEnvironmentVariableA(name, value.c_str()))
     {
-        // Display the error message and exit the process
-        char* msgBuff;
-        DWORD dw = GetLastError();
-
-        FormatMessageA(
-            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM
-                | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL,
-            dw,
-            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-            (char*)&msgBuff,
-            0,
-            NULL
-        );
-
-        const char* from = "Set ENV";
-        size_t size = lstrlenA(msgBuff) + lstrlenA(from) + 40;
-
-        char* displayBuff = new char[size];
-
-        StringCchPrintfA(displayBuff, size, "Error: %s: %s", from, msgBuff);
-
-        std::wcout << L"Error: " << from << L", " << msgBuff << std::endl;
-        MessageBoxA(NULL, (LPCSTR)displayBuff, "Error", MB_OK);
-
-        LocalFree(msgBuff);
+        showError();
     }
 #else
     int err = setenv(name, value.c_str(), 1);
@@ -75,6 +83,20 @@ bool write_env(const char* name, const std::string& value)
 #endif
     return true;
 }
+
+#ifdef _MSC_VER
+std::string get_env(const char* name)
+{
+    char buffer[1024];
+    if(!GetEnvironmentVariableA(name, buffer, 1024))
+    {
+        showError();
+    }
+
+    return std::string(buffer);
+}
+
+#endif
 
 int main(int argc, char** argv)
 {
@@ -114,6 +136,10 @@ int main(int argc, char** argv)
     {
         return -1;
     }
+#else
+    ss << std::stringstream();
+    ss << get_env("PATH") << ';' << installDir
+       << "/venv/Lib"
 #endif
 
     // Set up exec string
