@@ -9,7 +9,7 @@ import re
 import sysconfig
 
 from diamondpack.config import App, PackConfig, DPMode
-from diamondpack.log import log
+from diamondpack.log import log, logErr
 
 _IS_WINDOWS = sys.platform == 'win32'
 
@@ -83,6 +83,7 @@ class DiamondPacker:
         """
         Main entry point for packing
         """
+
         log(f"Building Virtual Environment")
         self._build_env()
 
@@ -95,6 +96,25 @@ class DiamondPacker:
 
         self._copy_data()
 
+    def _build_wheel(self):
+        log("Building wheel")
+        args = [sys.executable, "-m", "build", "--wheel"]
+        execute(args)
+
+        if not os.path.isdir("dist"):
+            logErr("Cannot find 'dist' directory")
+            return None
+
+        wheelName = f'{self._config.projectName.replace("-", "_")}-{self._config.version}*.whl'
+        wheelGlob = os.path.join('dist', wheelName)
+
+        files = glob.glob(wheelGlob)
+        if len(files) != 1:
+            logErr(f"Error finding exact wheel (glob='{wheelGlob}'), potentials: {files}")
+            return None
+
+        self._config.wheels = [files[0]]
+
     def _build_env(self):
         """
         Creates a virtual env and optionally installs requirements
@@ -105,11 +125,9 @@ class DiamondPacker:
 
         python_exec = sys.executable
 
-        if os.path.exists(self._venvDir):
-            shutil.rmtree(self._venvDir)
-
-        log("Calling venv")
-        execute([python_exec, '-m', 'venv', self._venvDir, '--copies'])
+        if not os.path.exists(self._venvDir) or not self._config.dev_mode:
+            log("Creating venv")
+            execute([python_exec, '-m', 'venv', self._venvDir, '--copies'])
 
         venvExec = os.path.join(self._venvBin, "python")
 
@@ -127,106 +145,109 @@ class DiamondPacker:
         if ret != 0:
             raise RuntimeError(f"Unable to install wheel: Return code ({ret})")
 
-        venvCfgFile = os.path.join(self._venvDir, "pyvenv.cfg")
-        os.remove(venvCfgFile)
+        if not self._config.dev_mode:
+            venvCfgFile = os.path.join(self._venvDir, "pyvenv.cfg")
+            os.remove(venvCfgFile)
+            # Remove scripts
+            toRemove = ["*ctivate*", "pip*", "python*"]
 
-        # Remove scripts
-        toRemove = ["*ctivate*", "pip*", "python*"]
+            for xxx in toRemove:
+                for f in glob.glob(os.path.join(self._venvBin, xxx)):
+                    os.remove(f)
 
-        for xxx in toRemove:
-            for f in glob.glob(os.path.join(self._venvBin, xxx)):
-                os.remove(f)
+            # Copy required libraries
+            log("Copying required libraries")
+            if _IS_WINDOWS:
+                libpath = sysconfig.get_config_var("installed_base")
+                for file in glob.glob(os.path.join(libpath, "*.dll")):
+                    fname = os.path.split(file)[1]
+                    shutil.copyfile(file, os.path.join(self._venvLib, fname))
+                otherDLLs = os.path.join(libpath, 'DLLs')
+                for file in glob.glob(os.path.join(otherDLLs, "*.dll")):
+                    fname = os.path.split(file)[1]
+                    shutil.copyfile(file, os.path.join(self._venvLib, fname))
+                for file in glob.glob(os.path.join(otherDLLs, "*.pyd")):
+                    fname = os.path.split(file)[1]
+                    shutil.copyfile(file, os.path.join(self._venvLib, fname))
+                if self._config.include_tk:
+                    shutil.copytree(
+                        os.path.join(libpath, "tcl", "tcl8.6"), os.path.join(self._venvDir, "Lib", "tcl8.6")
+                    )
+                    shutil.copytree(os.path.join(libpath, "tcl", "tk8.6"), os.path.join(self._venvDir, "Lib", "tk8.6"))
+            else:
+                _copy_linux_required_libs(python_exec, self._venvBin)
 
-        # Copy required libraries
-        log("Copying required libraries")
-        if _IS_WINDOWS:
-            libpath = sysconfig.get_config_var("installed_base")
-            for file in glob.glob(os.path.join(libpath, "*.dll")):
-                fname = os.path.split(file)[1]
-                shutil.copyfile(file, os.path.join(self._venvLib, fname))
-            otherDLLs = os.path.join(libpath, 'DLLs')
-            for file in glob.glob(os.path.join(otherDLLs, "*.dll")):
-                fname = os.path.split(file)[1]
-                shutil.copyfile(file, os.path.join(self._venvLib, fname))
-            for file in glob.glob(os.path.join(otherDLLs, "*.pyd")):
-                fname = os.path.split(file)[1]
-                shutil.copyfile(file, os.path.join(self._venvLib, fname))
-            if self._config.include_tk:
-                shutil.copytree(os.path.join(libpath, "tcl", "tcl8.6"), os.path.join(self._venvDir, "Lib", "tcl8.6"))
-                shutil.copytree(os.path.join(libpath, "tcl", "tk8.6"), os.path.join(self._venvDir, "Lib", "tk8.6"))
-        else:
-            _copy_linux_required_libs(python_exec, self._venvBin)
+                if self._config.include_tk:
+                    _copy_linux_required_libs("/usr/lib/libtk8.6.so", self._venvBin)
 
-            if self._config.include_tk:
-                _copy_linux_required_libs("/usr/lib/libtk8.6.so", self._venvBin)
+                if self._config.include_tk:
+                    shutil.copy("/usr/lib/libtk8.6.so", os.path.join(self._venvBin, "libtk8.6.so"))
+                    shutil.copytree("/usr/lib/tk8.6", os.path.join(self._venvDir, 'lib', "tk8.6"))
 
-            if self._config.include_tk:
-                shutil.copy("/usr/lib/libtk8.6.so", os.path.join(self._venvBin, "libtk8.6.so"))
-                shutil.copytree("/usr/lib/tk8.6", os.path.join(self._venvDir, 'lib', "tk8.6"))
+                    shutil.copy("/usr/lib/libtcl8.6.so", os.path.join(self._venvBin, "libtcl8.6.so"))
+                    shutil.copytree("/usr/lib/tcl8.6", os.path.join(self._venvDir, 'lib', "tcl8.6"))
 
-                shutil.copy("/usr/lib/libtcl8.6.so", os.path.join(self._venvBin, "libtcl8.6.so"))
-                shutil.copytree("/usr/lib/tcl8.6", os.path.join(self._venvDir, 'lib', "tcl8.6"))
+            log("Copying python executable")
+            # Copy the python executable
+            newExec = os.path.join(self._venvBin, "python")
+            if _IS_WINDOWS:
+                newExec += ".exe"
+                python_exec = os.path.join(sysconfig.get_config_var("installed_base"), "python.exe")
+            shutil.copyfile(python_exec, newExec)
+            # Set permissions
+            os.chmod(newExec, 0o755)
 
-        log("Copying python executable")
-        # Copy the python executable
-        newExec = os.path.join(self._venvBin, "python")
-        if _IS_WINDOWS:
-            newExec += ".exe"
-            python_exec = os.path.join(sysconfig.get_config_var("installed_base"), "python.exe")
-        shutil.copyfile(python_exec, newExec)
-        # Set permissions
-        os.chmod(newExec, 0o755)
+            log("Copying stdlib")
+            # Copy the stdlib
+            globalStdlib = sysconfig.get_path('stdlib')
 
-        log("Copying stdlib")
-        # Copy the stdlib
-        globalStdlib = sysconfig.get_path('stdlib')
+            shutil.copytree(
+                globalStdlib,
+                self._venvLib,
+                ignore=shutil.ignore_patterns(*self._config.stdlib_copy_block),
+                dirs_exist_ok=True
+            )
 
-        shutil.copytree(
-            globalStdlib,
-            self._venvLib,
-            ignore=shutil.ignore_patterns(*self._config.stdlib_copy_block),
-            dirs_exist_ok=True
-        )
+            log("Cleaning environment")
+            if _IS_WINDOWS:
+                packageDir = os.path.join(self._venvDir, "Lib", "site-packages")
+            else:
+                packageDir = os.path.join(self._venvDir, "lib", _PY_VERSION, "site-packages")
 
-        log("Cleaning environment")
-        if _IS_WINDOWS:
-            packageDir = os.path.join(self._venvDir, "Lib", "site-packages")
-        else:
-            packageDir = os.path.join(self._venvDir, "lib", _PY_VERSION, "site-packages")
+            for xxx in glob.glob(os.path.join(packageDir, "*.dist-info")):
+                shutil.rmtree(xxx)
 
-        for xxx in glob.glob(os.path.join(packageDir, "*.dist-info")):
-            shutil.rmtree(xxx)
+            def keepCache(filename: str):
+                folder, fname = os.path.split(filename)
+                fname = os.path.splitext(fname)[0]
+                cache = os.path.join(folder, "__pycache__", fname + "*.pyc")
+                try:
+                    cacheFile = glob.glob(cache)[0]
+                except IndexError:
+                    return
+                # remove the original file
+                os.remove(filename)
+                # rename the cached file
+                shutil.move(cacheFile, os.path.join(folder, fname + ".pyc"))
 
-        def keepCache(filename: str):
-            folder, fname = os.path.split(filename)
-            fname = os.path.splitext(fname)[0]
-            cache = os.path.join(folder, "__pycache__", fname + "*.pyc")
-            try:
-                cacheFile = glob.glob(cache)[0]
-            except IndexError:
-                return
-            # remove the original file
-            os.remove(filename)
-            # rename the cached file
-            shutil.move(cacheFile, os.path.join(folder, fname + ".pyc"))
+            if len(self._config.cache_block) > 0:
+                BL_RE = re.compile("|".join(self._config.cache_block))
+            else:
+                BL_RE = None
 
-        if len(self._config.cache_block) > 0:
-            BL_RE = re.compile("|".join(self._config.cache_block))
-        else:
-            BL_RE = None
+            for xxx in glob.glob(os.path.join(packageDir, "*/**.py"), recursive=True):
+                if BL_RE is not None and BL_RE.search(xxx) is not None:
+                    continue
+                keepCache(xxx)
 
-        for xxx in glob.glob(os.path.join(packageDir, "*/**.py"), recursive=True):
-            if BL_RE is not None and BL_RE.search(xxx) is not None:
-                continue
-            keepCache(xxx)
+            stdlibCacheBlacklist = ["encodings"]
+            BL_RE = re.compile("|".join(stdlibCacheBlacklist))
 
-        stdlibCacheBlacklist = ["encodings"]
-        BL_RE = re.compile("|".join(stdlibCacheBlacklist))
-
-        for xxx in glob.glob(os.path.join(self._venvLib, "*/**.py"), recursive=True):
-            if BL_RE.search(xxx) is not None:
-                continue
-            keepCache(xxx)
+            for xxx in glob.glob(os.path.join(self._venvLib, "*/**.py"), recursive=True):
+                if BL_RE.search(xxx) is not None:
+                    continue
+                keepCache(xxx)
+        # end if not dev mode
 
         shutil.copy(os.path.join(_TEMPLATE_DIR, "diamondpack-license.txt"), self._outputDir)
 

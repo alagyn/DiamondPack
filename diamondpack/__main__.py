@@ -52,13 +52,13 @@ def parse_project() -> Optional[PackConfig]:
         return None
 
     try:
-        projectName = str(project['name'])
+        config.projectName = str(project['name'])
     except KeyError:
         logErr("'project.name' missing from pyproject.toml")
         return None
 
     try:
-        version = project['version']
+        config.version = project['version']
     except KeyError:
         logErr("'project.version' missing from pyproject.toml")
         return None
@@ -121,20 +121,7 @@ def parse_project() -> Optional[PackConfig]:
     except KeyError:
         pass
 
-    config.name = f'{projectName}-{version}'
-
-    if not os.path.isdir("dist"):
-        logErr("Cannot find 'dist' directory, did you build your package to a wheel?")
-        return None
-
-    wheelGlob = os.path.join('dist', f'{projectName.replace("-", "_")}-{version}*.whl')
-
-    files = glob.glob(wheelGlob)
-    if len(files) != 1:
-        logErr(f"Error finding exact wheel (glob='{wheelGlob}'), potentials: {files}")
-        return None
-
-    config.wheels = [files[0]]
+    config.name = f'{config.projectName}-{config.version}'
 
     error = False
     for name, value in scripts.items():
@@ -163,6 +150,12 @@ def main():
 
     if config is None:
         return -1
+
+    parser = ArgumentParser()
+    parser.add_argument("--dev", action="store_true", help="Simplify build process for speed.")
+
+    args = parser.parse_args()
+    config.dev_mode = args.dev
 
     log(f"Packing - {config.name}")
     packer = DiamondPacker(config)

@@ -30,6 +30,10 @@ class PackConfig:
     """
 
     def __init__(self) -> None:
+        # package metadata
+        self.projectName: str = ""
+        self.version: str = ""
+
         # packages to install
         self.wheels: List[str] = []
         # (name, module, entry point or None)
@@ -50,3 +54,6 @@ class PackConfig:
         self.data_globs: List[Tuple[str, str]] = []
         # enable debug logs
         self.debug_logs = False
+
+        # disable env cleaning and quicker building
+        self.dev_mode = False
