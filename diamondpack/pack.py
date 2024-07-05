@@ -235,7 +235,7 @@ class DiamondPacker:
             else:
                 BL_RE = None
 
-            for xxx in glob.glob(os.path.join(packageDir, "*/**.py"), recursive=True):
+            for xxx in glob.glob(os.path.join(packageDir, "**/**.py"), recursive=True):
                 if BL_RE is not None and BL_RE.search(xxx) is not None:
                     continue
                 keepCache(xxx)
