@@ -46,8 +46,10 @@ class PackConfig:
         self.build_dir = "build"
         # blacklisted modules to not remove .py files
         self.cache_block: List[str] = []
+        # whitelisted stdlibs to copy
+        self.stdlib_whitelist: Optional[List[str]] = None
         # blacklisted stdlibs to not copy
-        self.stdlib_copy_block: List[str] = []
+        self.stdlib_blacklist: Optional[List[str]] = None
         # whether we should copy tk stuff
         self.include_tk = False
         # list of file globs and dest dir to copy into the package

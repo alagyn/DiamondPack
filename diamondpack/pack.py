@@ -7,6 +7,7 @@ from typing import List, Dict
 import glob
 import re
 import sysconfig
+import time
 
 from diamondpack.config import App, PackConfig, DPMode
 from diamondpack.log import log, logErr
@@ -22,6 +23,25 @@ _TEMPLATE_DIR = os.path.join(_PACKAGE_DIR, "app-templates")
 _REPLACE_RE = re.compile("@@[A-Z]+@@")
 
 _PY_VERSION = f'python{sys.version_info.major}.{sys.version_info.minor}'
+
+MINIMUM_STDLIB = [
+    "encodings",
+    "linecache",
+    "collections",
+    "keyword",
+    "operator",
+    "reprlib",
+    "enum",
+    "functools",
+    "types",
+    "copyreg",
+    "gettext",
+    "locale",
+]
+
+TKINTER_LIBS = [
+    "tkinter",
+]
 
 
 def _do_replace(template: str, outfile: str, replacements: Dict[str, str]) -> None:
@@ -51,6 +71,8 @@ def execute(args: List[str], env=None) -> int:
 
 LIB_RE = re.compile(r'[a-zA-Z._0-9/\-+]+ => (?P<filename>[a-zA-Z._0-9\-/\\]+) \(0x[0-9a-f]+\)')
 
+LINUX_LIB_BLACKLIST = ["libc.so", "libm.so"]
+
 
 def _copy_linux_required_libs(target: str, outDir: str):
     out = sp.run(["ldd", target], capture_output=True)
@@ -61,8 +83,15 @@ def _copy_linux_required_libs(target: str, outDir: str):
         if m is None:
             continue
         file = m.group('filename')
-        libName = os.path.split(file)[1]
-        shutil.copyfile(file, os.path.join(outDir, libName))
+        skip = False
+        for ignore in LINUX_LIB_BLACKLIST:
+            if file.startswith(ignore):
+                skip = True
+                break
+        if skip:
+            continue
+        if not os.path.exists(os.path.join(outDir, os.path.basename(file))):
+            shutil.copy(file, outDir)
 
 
 class DiamondPacker:
@@ -84,7 +113,7 @@ class DiamondPacker:
         Main entry point for packing
         """
 
-        log(f"Building Virtual Environment")
+        self._build_wheel()
         self._build_env()
 
         for script in self._config.scripts:
@@ -118,11 +147,8 @@ class DiamondPacker:
     def _build_env(self):
         """
         Creates a virtual env and optionally installs requirements
-
-        :param build_dir: Output build directory
-        :param wheels: A list of wheels to install into the venv
         """
-
+        log(f"Building Virtual Environment")
         python_exec = sys.executable
 
         if not os.path.exists(self._venvDir) or not self._config.dev_mode:
@@ -175,17 +201,35 @@ class DiamondPacker:
                     )
                     shutil.copytree(os.path.join(libpath, "tcl", "tk8.6"), os.path.join(self._venvDir, "Lib", "tk8.6"))
             else:
-                _copy_linux_required_libs(python_exec, self._venvBin)
+                # _copy_linux_required_libs(python_exec, self._venvBin)
 
                 if self._config.include_tk:
-                    _copy_linux_required_libs("/usr/lib/libtk8.6.so", self._venvBin)
+                    libpath = sysconfig.get_config_var("DESTSHARED")
+                    os.makedirs(os.path.join(self._venvLib, "lib-dynload"), exist_ok=True)
+                    for x in glob.glob(os.path.join(libpath, "_tkinter*")):
+                        _copy_linux_required_libs(x, self._venvBin)
+                        lib = os.path.basename(x)
+                        shutil.copy(x, os.path.join(self._venvLib, "lib-dynload", lib))
 
-                if self._config.include_tk:
-                    shutil.copy("/usr/lib/libtk8.6.so", os.path.join(self._venvBin, "libtk8.6.so"))
-                    shutil.copytree("/usr/lib/tk8.6", os.path.join(self._venvDir, 'lib', "tk8.6"))
+                    _copy_linux_required_libs("/usr/lib64/libtk8.6.so", self._venvBin)
 
-                    shutil.copy("/usr/lib/libtcl8.6.so", os.path.join(self._venvBin, "libtcl8.6.so"))
-                    shutil.copytree("/usr/lib/tcl8.6", os.path.join(self._venvDir, 'lib', "tcl8.6"))
+                    # shutil.copy("/usr/lib64/libtk8.6.so", os.path.join(self._venvBin, "libtk8.6.so"))
+                    shutil.copytree(
+                        "/usr/lib64/tk8.6",
+                        os.path.join(
+                            self._venvDir,
+                            'lib',
+                            "tk8.6",
+                        ),
+                        dirs_exist_ok=True,
+                    )
+
+                    # shutil.copy("/usr/lib64/libtcl8.6.so", os.path.join(self._venvBin, "libtcl8.6.so"))
+                    shutil.copytree(
+                        "/usr/lib64/tcl8.6",
+                        os.path.join(self._venvDir, 'lib', "tcl8.6"),
+                        dirs_exist_ok=True,
+                    )
 
             log("Copying python executable")
             # Copy the python executable
@@ -201,12 +245,31 @@ class DiamondPacker:
             # Copy the stdlib
             globalStdlib = sysconfig.get_path('stdlib')
 
-            shutil.copytree(
-                globalStdlib,
-                self._venvLib,
-                ignore=shutil.ignore_patterns(*self._config.stdlib_copy_block),
-                dirs_exist_ok=True
-            )
+            if self._config.stdlib_blacklist is not None:
+                shutil.copytree(
+                    globalStdlib,
+                    self._venvLib,
+                    ignore=shutil.ignore_patterns(*self._config.stdlib_blacklist),
+                    dirs_exist_ok=True
+                )
+            else:
+                libs = set(MINIMUM_STDLIB)
+                if self._config.include_tk:
+                    libs.update(TKINTER_LIBS)
+                if self._config.stdlib_whitelist is not None:
+                    libs.update(self._config.stdlib_whitelist)
+
+                for x in libs:
+                    lib = os.path.join(globalStdlib, x)
+                    if os.path.isdir(lib):
+                        shutil.copytree(lib, os.path.join(self._venvLib, x), dirs_exist_ok=True)
+                    else:
+                        lib += ".py"
+                        if os.path.isfile(lib):
+                            shutil.copy(
+                                lib,
+                                self._venvLib,
+                            )
 
             log("Cleaning environment")
             if _IS_WINDOWS:

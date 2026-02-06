@@ -24,12 +24,13 @@ SCRIPT_RE = re.compile(r'((?P<name>[^=]+)=)?(?P<path>[^:]+)(:(?P<entry>.+))?')
 class ConfigKeys:
     MODE = "mode"
     PYCACHE_BL = "py-cache-blacklist"
+    STDLIB_WL = "stdlib-whitelist"
     STDLIB_BL = "stdlib-blacklist"
     INC_TK = "include-tk"
     DATA_GLOBS = "data-globs"
     DEBUG_LOGS = "debug-logs"
 
-    VALID_KEYS = [MODE, PYCACHE_BL, STDLIB_BL, INC_TK, DATA_GLOBS, DEBUG_LOGS]
+    VALID_KEYS = [MODE, PYCACHE_BL, STDLIB_WL, STDLIB_BL, INC_TK, DATA_GLOBS, DEBUG_LOGS]
 
 
 def parse_project() -> Optional[PackConfig]:
@@ -97,9 +98,19 @@ def parse_project() -> Optional[PackConfig]:
         config.mode = DPMode.APP
 
     try:
-        config.stdlib_copy_block = dpConfigs[ConfigKeys.STDLIB_BL]
+        config.stdlib_blacklist = dpConfigs[ConfigKeys.STDLIB_BL]
     except KeyError:
         pass
+
+    try:
+        config.stdlib_whitelist = dpConfigs[ConfigKeys.STDLIB_WL]
+    except KeyError:
+        pass
+
+    if config.stdlib_blacklist is not None and config.stdlib_whitelist is not None:
+        logErr(
+            f"Cannot define both 'tool.diamondpack.{ConfigKeys.STDLIB_BL}' and 'tool.diamondpack.{ConfigKeys.STDLIB_WL}'"
+        )
 
     try:
         config.include_tk = dpConfigs[ConfigKeys.INC_TK]
@@ -145,16 +156,20 @@ def main():
     log(f"        DiamondPack - v{VERSION}")
     log("-----------------------------------------")
 
+    parser = ArgumentParser()
+    parser.add_argument("--dev", action="store_true", help="Simplify build process for speed.")
+    parser.add_argument("--project", help="Directory containing python project.", default=".")
+
+    args = parser.parse_args()
+
+    os.chdir(args.project)
+
     log("Loading pyproject.toml")
     config = parse_project()
 
     if config is None:
         return -1
 
-    parser = ArgumentParser()
-    parser.add_argument("--dev", action="store_true", help="Simplify build process for speed.")
-
-    args = parser.parse_args()
     config.dev_mode = args.dev
 
     log(f"Packing - {config.name}")
