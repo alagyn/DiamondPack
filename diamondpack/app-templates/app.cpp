@@ -60,7 +60,6 @@ void showError()
     MessageBoxA(NULL, (LPCSTR)displayBuff, "Error", MB_OK);
 
     LocalFree(msgBuff);
-    exit(1);
 }
 #endif
 
@@ -71,6 +70,7 @@ bool write_env(const char* name, const std::string& value)
     if(!SetEnvironmentVariableA(name, value.c_str()))
     {
         showError();
+        return false;
     }
 #else
     int err = setenv(name, value.c_str(), 1);
@@ -91,6 +91,7 @@ std::string get_env(const char* name)
     if(!GetEnvironmentVariableA(name, buffer, 1024))
     {
         showError();
+        exit(1);
     }
 
     return std::string(buffer);
@@ -137,8 +138,9 @@ int main(int argc, char** argv)
         return -1;
     }
 #else
-    ss << std::stringstream();
+    ss = std::stringstream();
     ss << installDir << "/venv/Lib" << get_env("PATH") << ';';
+
 #endif
 
     // Set up exec string
