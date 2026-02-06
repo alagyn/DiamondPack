@@ -1,7 +1,8 @@
 {
     "python.analysis.exclude": [
         "test-dist",
-        "test/**"
+        "test/**",
+        "venv"
     ],
     "files.associations": {
         ".style.yapf": "properties",
