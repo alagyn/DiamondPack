@@ -7,7 +7,6 @@ from typing import List, Dict
 import glob
 import re
 import sysconfig
-import time
 
 from diamondpack.config import App, PackConfig, DPMode
 from diamondpack.log import log, logErr
@@ -37,6 +36,8 @@ MINIMUM_STDLIB = [
     "copyreg",
     "gettext",
     "locale",
+    "os",
+    "sys"
 ]
 
 TKINTER_LIBS = [
@@ -119,7 +120,14 @@ class DiamondPacker:
         for script in self._config.scripts:
             log(f"Generating app - {script.name}")
             if self._config.mode == DPMode.APP:
-                self._make_exec(script)
+                self._make_exec(script, False)
+            else:
+                self._make_script(script)
+
+        for script in self._config.gui_scripts:
+            log(f"Generating GUI app - {script.name}")
+            if self._config.mode == DPMode.APP:
+                self._make_exec(script, True)
             else:
                 self._make_script(script)
 
@@ -362,7 +370,7 @@ class DiamondPacker:
 
         log(f'Success - {app.name}')
 
-    def _make_exec(self, app: App):
+    def _make_exec(self, app: App, is_gui: bool):
         """
         Generate an executable for the given app
         :param app: The app
@@ -378,7 +386,10 @@ class DiamondPacker:
         cmakeSrc = os.path.join(self._buildDir, "dp-app-src-dir")
         os.makedirs(cmakeSrc, exist_ok=True)
 
-        template = 'app.cpp'
+        if _IS_WINDOWS:
+            template = 'app-windows.cpp'
+        else:
+            template = "app-linux.cpp"
         outfile = os.path.join(cmakeSrc, f'app.cpp')
 
         replace = {
@@ -391,7 +402,17 @@ class DiamondPacker:
         # Copy the build config
         shutil.copy(os.path.join(_TEMPLATE_DIR, "CMakeLists.txt"), cmakeSrc)
 
-        configureParams = ["cmake", "-S", cmakeSrc, "-B", cmakeBuild, f"-DEXEC_NAME={app.name}"]
+        configureParams = [
+            "cmake",
+            "-S",
+            cmakeSrc,
+            "-B",
+            cmakeBuild,
+            f"-DEXEC_NAME={app.name}",
+        ]
+
+        if is_gui:
+            configureParams.append("-DIS_GUI=ON")
 
         buildParams = ["cmake", "--build", cmakeBuild]
 

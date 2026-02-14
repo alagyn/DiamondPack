@@ -38,6 +38,7 @@ class PackConfig:
         self.wheels: List[str] = []
         # (name, module, entry point or None)
         self.scripts: List[App] = []
+        self.gui_scripts: List[App] = []
         # Overall package name
         self.name = ""
         # Packaging mode

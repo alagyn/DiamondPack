@@ -3,7 +3,6 @@ import os
 import sys
 from typing import Optional
 import re
-import glob
 
 if sys.version_info.major == 3 and sys.version_info.minor < 11:
     import tomli  # type: ignore
@@ -14,7 +13,7 @@ from diamondpack.config import PackConfig, DPMode, App
 from diamondpack.pack import DiamondPacker
 from diamondpack.log import logErr, log
 
-VERSION = "1.4.5"
+VERSION = "1.5.0"
 
 PROJECT_FILE = "pyproject.toml"
 
@@ -31,6 +30,16 @@ class ConfigKeys:
     DEBUG_LOGS = "debug-logs"
 
     VALID_KEYS = [MODE, PYCACHE_BL, STDLIB_WL, STDLIB_BL, INC_TK, DATA_GLOBS, DEBUG_LOGS]
+
+
+def parse_app(name, value) -> App | None:
+    m = SCRIPT_RE.fullmatch(value)
+    if m is None:
+        logErr(f"Invalid script spec: '{value}'")
+        return None
+    path = m.group('path')
+    entry = m.group('entry')
+    return App(name, path, entry)
 
 
 def parse_project() -> Optional[PackConfig]:
@@ -67,7 +76,15 @@ def parse_project() -> Optional[PackConfig]:
     try:
         scripts = project['scripts']
     except KeyError:
-        logErr("'project.scripts' missing from pyproject.toml")
+        scripts = {}
+
+    try:
+        gui_scripts = project["gui-scripts"]
+    except KeyError:
+        gui_scripts = {}
+
+    if len(scripts) == 0 and len(gui_scripts) == 0:
+        logErr("'project.scripts' and 'project.gui-scripts' are both missing from pyproject.toml, or empty")
         return None
 
     try:
@@ -135,15 +152,20 @@ def parse_project() -> Optional[PackConfig]:
     config.name = f'{config.projectName}-{config.version}'
 
     error = False
+
     for name, value in scripts.items():
-        m = SCRIPT_RE.fullmatch(value)
-        if m is None:
-            logErr(f"Invalid script spec: '{value}'")
+        app = parse_app(name, value)
+        if app is None:
             error = True
             continue
-        path = m.group('path')
-        entry = m.group('entry')
-        config.scripts.append(App(name, path, entry))
+        config.scripts.append(app)
+
+    for name, value in gui_scripts.items():
+        app = parse_app(name, value)
+        if app is None:
+            error = True
+            continue
+        config.gui_scripts.append(app)
 
     if error:
         return None

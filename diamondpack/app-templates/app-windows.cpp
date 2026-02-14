@@ -1,23 +1,15 @@
 /*
 Template app
 */
-#ifdef _MSC_VER
-    #define WIN32_LEAN_AND_MEAN
 
-    #include <Windows.h>
-    #include <strsafe.h>
-    #include <winbase.h>
+#define WIN32_LEAN_AND_MEAN
 
-    // Use backslashes
-    #define SEP "\\"
-#else
-    #include <cstring>
-    #include <errno.h>
-    #include <stdlib.h>
+#include <Windows.h>
+#include <strsafe.h>
+#include <winbase.h>
 
-    // Use forward slashes
-    #define SEP "/"
-#endif
+// Use backslashes
+#define SEP "\\"
 
 #include <filesystem>
 #include <iostream>
@@ -31,7 +23,6 @@ Template app
     #define LOG(x)
 #endif
 
-#ifdef _MSC_VER
 void showError()
 {
     // Display the error message and exit the process
@@ -61,30 +52,18 @@ void showError()
 
     LocalFree(msgBuff);
 }
-#endif
 
 bool write_env(const char* name, const std::string& value)
 {
     LOG("Setting " << name << "=" << value << std::endl);
-#ifdef _MSC_VER
     if(!SetEnvironmentVariableA(name, value.c_str()))
     {
         showError();
         return false;
     }
-#else
-    int err = setenv(name, value.c_str(), 1);
-    if(err != 0)
-    {
-        LOG("Error setting '" << name << "=" << value << "'\n");
-        LOG(strerror(errno) << "\n");
-        return false;
-    }
-#endif
     return true;
 }
 
-#ifdef _MSC_VER
 std::string get_env(const char* name)
 {
     char buffer[1024];
@@ -97,11 +76,18 @@ std::string get_env(const char* name)
     return std::string(buffer);
 }
 
-#endif
-
+#ifdef GUI_APP
+int WINAPI
+WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nCmdShow)
+#else
 int main(int argc, char** argv)
+#endif
 {
     // First we parse out the home directory of this application
+#ifdef GUI_APP
+    int argc;
+    wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &nArgs);
+#endif
     char* appPath = argv[0];
     int lastSlash = 0;
     for(int i = 0; appPath[i] != 0; ++i)
@@ -130,36 +116,22 @@ int main(int argc, char** argv)
         return -1;
     }
 
-#ifndef _MSC_VER
     ss = std::stringstream();
-    ss << installDir << "/venv/bin";
-    if(!write_env("LD_LIBRARY_PATH", ss.str()))
+    ss << installDir << "/venv/Lib;" << get_env("PATH") << ';';
+    if(!write_env("PATH", ss.str()))
     {
         return -1;
     }
-#else
-    ss = std::stringstream();
-    ss << installDir << "/venv/Lib" << get_env("PATH") << ';';
-
-#endif
 
     // Set up exec string
     ss = std::stringstream();
     ss << "\""
-#ifdef _MSC_VER
        /*
            Windows is wack, so we have to double quote this otherwise it gets
           stripped
        */
-       << "\""
-#endif
-       << installDir
-
-#ifdef _MSC_VER
+       << "\"" << installDir
        << SEP "venv" SEP "Scripts" SEP "python.exe"
-#else
-       << "/venv/bin/python"
-#endif
               "\" @@COMMAND@@ "
 
 #ifdef _MSC_VER
