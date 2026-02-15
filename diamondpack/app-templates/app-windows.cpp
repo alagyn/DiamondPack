@@ -8,8 +8,12 @@ Template app
 #include <strsafe.h>
 #include <winbase.h>
 
+#ifdef GUI_APP
+    #include <shellapi.h>
+#endif
+
 // Use backslashes
-#define SEP "\\"
+#define SEP L"\\"
 
 #include <filesystem>
 #include <iostream>
@@ -18,138 +22,168 @@ Template app
 #include <vector>
 
 #ifdef DIAMOND_LOGGING
-    #define LOG(x) std::cout << "<> " << x
+    #define LOG(x) std::wcout << "<> " << x
 #else
     #define LOG(x)
 #endif
 
-void showError()
+void showError(const wchar_t* from)
 {
     // Display the error message and exit the process
-    char* msgBuff;
+    wchar_t* msgBuff;
     DWORD dw = GetLastError();
 
-    FormatMessageA(
+    FormatMessageW(
         FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM
             | FORMAT_MESSAGE_IGNORE_INSERTS,
         NULL,
         dw,
         MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (char*)&msgBuff,
+        (wchar_t*)&msgBuff,
         0,
         NULL
     );
 
-    const char* from = "Set ENV";
-    size_t size = lstrlenA(msgBuff) + lstrlenA(from) + 40;
+    int size = lstrlenW(msgBuff) + lstrlenW(from) + 40;
 
-    char* displayBuff = new char[size];
+    wchar_t* displayBuff = new wchar_t[size];
 
-    StringCchPrintfA(displayBuff, size, "Error: %s: %s", from, msgBuff);
+    StringCchPrintfW(displayBuff, size, L"Error: %s: %s", from, msgBuff);
 
     std::wcout << L"Error: " << from << L", " << msgBuff << std::endl;
-    MessageBoxA(NULL, (LPCSTR)displayBuff, "Error", MB_OK);
+    MessageBoxW(NULL, (LPCWSTR)displayBuff, L"Error", MB_OK);
 
     LocalFree(msgBuff);
 }
 
-bool write_env(const char* name, const std::string& value)
+bool write_env(const wchar_t* name, const std::wstring& value)
 {
-    LOG("Setting " << name << "=" << value << std::endl);
-    if(!SetEnvironmentVariableA(name, value.c_str()))
+    LOG(L"Setting " << name << L"=" << value << std::endl);
+    if(!SetEnvironmentVariableW(name, value.c_str()))
     {
-        showError();
+        showError(L"diamondpack:write_env()");
         return false;
     }
     return true;
 }
 
-std::string get_env(const char* name)
+std::wstring get_env(const wchar_t* name)
 {
-    char buffer[1024];
-    if(!GetEnvironmentVariableA(name, buffer, 1024))
+    wchar_t buffer[1024];
+    if(!GetEnvironmentVariableW(name, buffer, 1024))
     {
-        showError();
+        showError(L"diamondpack:get_env()");
         exit(1);
     }
 
-    return std::string(buffer);
+    return std::wstring(buffer);
 }
 
 #ifdef GUI_APP
 int WINAPI
 WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nCmdShow)
 #else
-int main(int argc, char** argv)
+int wmain(int argc, wchar_t** argv)
 #endif
 {
     // First we parse out the home directory of this application
 #ifdef GUI_APP
     int argc;
-    wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &nArgs);
+    wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 #endif
-    char* appPath = argv[0];
+    wchar_t* appPath = argv[0];
     int lastSlash = 0;
     for(int i = 0; appPath[i] != 0; ++i)
     {
-        if(appPath[i] == '/' || appPath[i] == '\\')
+        if(appPath[i] == L'/' || appPath[i] == L'\\')
         {
             lastSlash = i;
         }
     }
 
-    std::string installDir(appPath, lastSlash);
+    std::wstring installDir(appPath, lastSlash);
 
-    // Fallback if we get empty string
+    // Fallback if we get empty wstring
     if(installDir.empty())
     {
-        installDir = std::filesystem::current_path().string();
+        installDir = std::filesystem::current_path().wstring();
     }
 
-    LOG("App location: " << installDir << std::endl);
+    LOG(L"App location: " << installDir << std::endl);
 
     // Set up the PYTHONHOME var
-    std::stringstream ss;
-    ss << installDir << SEP "venv";
-    if(!write_env("PYTHONHOME", ss.str()))
+    std::wstringstream ss;
+    ss << installDir << SEP L"venv";
+    if(!write_env(L"PYTHONHOME", ss.str()))
     {
         return -1;
     }
 
-    ss = std::stringstream();
-    ss << installDir << "/venv/Lib;" << get_env("PATH") << ';';
-    if(!write_env("PATH", ss.str()))
+    ss = std::wstringstream();
+    ss << installDir << L"/venv/Lib;" << get_env(L"PATH") << L';';
+    if(!write_env(L"PATH", ss.str()))
     {
         return -1;
     }
 
-    // Set up exec string
-    ss = std::stringstream();
-    ss << "\""
-       /*
-           Windows is wack, so we have to double quote this otherwise it gets
-          stripped
-       */
-       << "\"" << installDir
-       << SEP "venv" SEP "Scripts" SEP "python.exe"
-              "\" @@COMMAND@@ "
-
-#ifdef _MSC_VER
-              //Close for the double quote
-              "\""
+    // Set up exec wstring
+    ss = std::wstringstream();
+    /*
+        Windows is wack, so we have to double quote this otherwise it gets
+       stripped
+    */
+    ss << L"\"" << installDir
+       << SEP L"venv" SEP L"Scripts" SEP
+#ifdef GUI_APP
+              L"pythonw.exe"
+#else
+              L"python.exe"
 #endif
-        ;
+              L"\" @@COMMAND@@ ";
 
     // Add all remaining cmd line args
     for(int i = 1; i < argc; ++i)
     {
-        ss << " " << argv[i];
+        ss << L" " << argv[i];
     }
 
     // Exec the app
-    // TODO change windows to use CreateProcess?
-    LOG("Executing: " << ss.str() << std::endl);
-    int out = std::system(ss.str().c_str());
-    LOG("Return Code: " << out << std::endl);
+    STARTUPINFOW si;
+    PROCESS_INFORMATION pi;
+
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    ZeroMemory(&pi, sizeof(pi));
+
+    std::wstring cmdline = ss.str();
+
+    LOG(L"Executing: " << ss.str() << std::endl);
+    bool out = CreateProcessW(
+        NULL,                    // No module name (use command line)
+        (LPWSTR)cmdline.c_str(), // Command line
+        NULL,                    // Process handle not inheritable
+        NULL,                    // Thread handle not inheritable
+        FALSE,                   // Set handle inheritance to FALSE
+        0,                       // No creation flags
+        NULL,                    // Use parent's environment block
+        NULL,                    // Use parent's starting directory
+        &si,                     // Pointer to STARTUPINFO structure
+        &pi                      // Pointer to PROCESS_INFORMATION structure
+    );
+
+    if(!out)
+    {
+        LOG(L"Failed to start process");
+        showError(L"diamondpack:create_process()");
+    }
+
+    // Wait until child process exits.
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    // Close process and thread handles.
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    LOG(L"Return Code: " << out << std::endl);
     return out;
 }

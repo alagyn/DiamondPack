@@ -244,7 +244,10 @@ class DiamondPacker:
             newExec = os.path.join(self._venvBin, "python")
             if _IS_WINDOWS:
                 newExec += ".exe"
-                python_exec = os.path.join(sysconfig.get_config_var("installed_base"), "python.exe")
+                python_w = os.path.join(sysconfig.get_config_var("installed_base"), f"pythonw.exe")
+                new_python_w = os.path.join(self._venvBin, "pythonw.exe")
+                shutil.copyfile(python_w, new_python_w)
+                python_exec = os.path.join(sysconfig.get_config_var("installed_base"), f"python.exe")
             shutil.copyfile(python_exec, newExec)
             # Set permissions
             os.chmod(newExec, 0o755)
