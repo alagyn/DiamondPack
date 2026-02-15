@@ -128,10 +128,6 @@ int wmain(int argc, wchar_t** argv)
 
     // Set up exec wstring
     ss = std::wstringstream();
-    /*
-        Windows is wack, so we have to double quote this otherwise it gets
-       stripped
-    */
     ss << L"\"" << installDir
        << SEP L"venv" SEP L"Scripts" SEP
 #ifdef GUI_APP
