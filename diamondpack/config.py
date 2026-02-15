@@ -9,7 +9,7 @@ class DPMode(enum.IntEnum):
 
 class App:
 
-    def __init__(self, name: str, path: str, entry: Optional[str]) -> None:
+    def __init__(self, name: str, path: str, entry: Optional[str], icon: Optional[str]) -> None:
         """
         Configs for a single diamondpack executable app
 
@@ -22,6 +22,7 @@ class App:
         self.name = name
         self.path = path
         self.entry = entry
+        self.icon = icon
 
 
 class PackConfig:

@@ -33,6 +33,11 @@ or
 # Each script named here will generate a new executable
 myScript = "examplePackage.myScript:main"
 
+[project.gui-scripts]
+# Each script named here will also generate a new executable
+# Only makes a difference on Windows.
+myGUI = "examplePackage.myGUI:main"
+
 [tool.diamondpack]
 mode = "app"
 
@@ -49,6 +54,7 @@ include-tk = false
 
 # Additional data files can be copied into your distribution like this
 # File globs are copied to the specified path in the dist.
+# You can also just use MANIFEST.in to store data files in your wheel.
 data-globs = [
     ["myData/img*.jpg", "destinationDir"],
     ["myData/data.dat", "data"]
@@ -56,6 +62,11 @@ data-globs = [
 
 # Enable some additional logging for the "app" mode
 debug-logs = true
+
+[tool.diamondpack.icons]
+# Specify the .ico file for your execs named above
+# Only works on Windows
+myGUI = "path/myGUI.ico"
 ```
 
 Mode can be `app` or `script`:

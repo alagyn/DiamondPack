@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 import os
 import sys
-from typing import Optional
+from typing import Optional, Dict
 import re
 
 if sys.version_info.major == 3 and sys.version_info.minor < 11:
@@ -28,18 +28,32 @@ class ConfigKeys:
     INC_TK = "include-tk"
     DATA_GLOBS = "data-globs"
     DEBUG_LOGS = "debug-logs"
+    ICONS = "icons"
 
-    VALID_KEYS = [MODE, PYCACHE_BL, STDLIB_WL, STDLIB_BL, INC_TK, DATA_GLOBS, DEBUG_LOGS]
+    VALID_KEYS = [
+        MODE,
+        PYCACHE_BL,
+        STDLIB_WL,
+        STDLIB_BL,
+        INC_TK,
+        DATA_GLOBS,
+        DEBUG_LOGS,
+        ICONS,
+    ]
 
 
-def parse_app(name, value) -> App | None:
+def parse_app(name, value, icons: Dict[str, str]) -> App | None:
     m = SCRIPT_RE.fullmatch(value)
     if m is None:
         logErr(f"Invalid script spec: '{value}'")
         return None
     path = m.group('path')
     entry = m.group('entry')
-    return App(name, path, entry)
+    try:
+        icon = icons[name]
+    except KeyError:
+        icon = None
+    return App(name, path, entry, icon)
 
 
 def parse_project() -> Optional[PackConfig]:
@@ -153,19 +167,31 @@ def parse_project() -> Optional[PackConfig]:
 
     error = False
 
+    try:
+        icons = dpConfigs[ConfigKeys.ICONS]
+    except KeyError:
+        icons = {}
+
     for name, value in scripts.items():
-        app = parse_app(name, value)
+        app = parse_app(name, value, icons)
         if app is None:
             error = True
             continue
         config.scripts.append(app)
 
     for name, value in gui_scripts.items():
-        app = parse_app(name, value)
+        app = parse_app(name, value, icons)
         if app is None:
             error = True
             continue
         config.gui_scripts.append(app)
+
+    normal_script_names = set(scripts.keys())
+    gui_script_names = set(gui_scripts.keys())
+
+    if len(normal_script_names & gui_script_names) > 0:
+        logErr(f"Cannot specify the same script name in both 'project.scripts' and 'project.gui-scripts'")
+        error = True
 
     if error:
         return None

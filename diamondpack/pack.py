@@ -15,6 +15,7 @@ _IS_WINDOWS = sys.platform == 'win32'
 
 _CMD_REPLACE = '@@COMMAND@@'
 _PY_REPLACE = '@@PYTHON@@'
+_ICON_REPLACE = "@@ICON@@"
 
 _PACKAGE_DIR = os.path.split(__file__)[0]
 _TEMPLATE_DIR = os.path.join(_PACKAGE_DIR, "app-templates")
@@ -414,8 +415,18 @@ class DiamondPacker:
             f"-DEXEC_NAME={app.name}",
         ]
 
+        if app.icon is not None:
+            icon_fname = os.path.basename(app.icon)
+            shutil.copy(app.icon, cmakeSrc)
+            _do_replace(
+                os.path.join(_TEMPLATE_DIR, "app.rc"), os.path.join(cmakeSrc, "app.rc"), {
+                    _ICON_REPLACE: icon_fname
+                }
+            )
+            configureParams.append("-DHAS_ICON=ON")
+
         if is_gui:
-            configureParams.append("-DIS_GUI=ON")
+            configureParams.append("-DGUI_APP=ON")
 
         buildParams = ["cmake", "--build", cmakeBuild]
 
