@@ -46,10 +46,6 @@ def main():
 
     os.chdir(os.path.join(HOME, "test"))
 
-    # Build test wheel
-    if args.wheel or not os.path.exists(WHEEL):
-        sp.run([sys.executable, "-m", "build", "--wheel"])
-
     # Delete the existing test
     dist = os.path.join("dist", EXAMPLE)
     if os.path.isdir(dist):
