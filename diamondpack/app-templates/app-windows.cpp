@@ -158,7 +158,7 @@ int wmain(int argc, wchar_t** argv)
     std::wstring cmdline = ss.str();
 
     LOG(L"Executing: " << ss.str() << std::endl);
-    bool out = CreateProcessW(
+    bool procCreated = CreateProcessW(
         NULL,                    // No module name (use command line)
         (LPWSTR)cmdline.c_str(), // Command line
         NULL,                    // Process handle not inheritable
@@ -171,7 +171,7 @@ int wmain(int argc, wchar_t** argv)
         &pi                      // Pointer to PROCESS_INFORMATION structure
     );
 
-    if(!out)
+    if(!procCreated)
     {
         LOG(L"Failed to start process");
         showError(L"diamondpack:create_process()");
@@ -179,6 +179,10 @@ int wmain(int argc, wchar_t** argv)
 
     // Wait until child process exits.
     WaitForSingleObject(pi.hProcess, INFINITE);
+
+    DWORD out;
+
+    GetExitCodeProcess(pi.hProcess, &out);
 
     // Close process and thread handles.
     CloseHandle(pi.hProcess);
